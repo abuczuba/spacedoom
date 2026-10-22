@@ -1,10 +1,47 @@
-# Validation evidence — 2026-10-21
+# Validation evidence — 2026-10-21–22
 
 All implementation testing used development files, owned temporary homes and
-private servers. No production release exists. No live application was reloaded.
-This is isolated evidence, not workstation UX acceptance.
+private servers. The ec518f0 release was subsequently staged inactive; no live
+configuration was migrated and no live application was reloaded. This is
+isolated evidence, not workstation UX acceptance. STATUS.md records current
+deployment state; original implementation results below are dated history.
 
-## Final commands and results
+## Pointer-restoration repair — 2026-10-22 UTC
+
+`python3 -B scripts/test.py --integration`: **47 tests passed**, final run 1.642s
+(37 unit tests and 10 integration tests). The initial sandboxed integration run
+failed to create private tmux sockets; the permitted run used only temporary
+homes, explicit private sockets, an empty startup config and inert test panes.
+No failed sandbox run is counted as a pass.
+
+Regression coverage now includes:
+
+- Initial migration restores three original files' bytes/modes, removes both
+  new helper links, and restores current's prior absence using actual templates.
+- A preexisting older current preserves its exact symlink text while a newer
+  staged release stays inactive; migration still refuses implicit activation.
+- Partial migration, including failure before pointer creation, restores safely.
+- Unexpected pointer targets, absence, regular files/directories and changes
+  during restoration are refused without overwriting the unexpected state.
+- Other components, skipped managed paths, relative/aliased links and paths
+  containing current/.. prevent pointer removal while it is still needed.
+- File removal, pointer removal, pointer-directory fsync and final journal
+  failures return failure and retain a retryable restoring journal. An injected
+  partial failure through the CLI returns nonzero with no success message.
+- Successful repeats validate state without writes; later user changes are
+  refused rather than deleted. Legacy backup journals without pointer evidence
+  are refused rather than guessed.
+
+Read-only before/after fingerprints confirmed production files, modes, link
+states, inodes, mtimes, ctimes and deployment-directory members were unchanged.
+Current remains absent and production backups/history remain empty. All staged
+ec518f0 payloads still match their committed blobs after rendering. Release
+receipt/manifest schema 1 is unchanged; only new backup journals use schema 2.
+The original exact-state restore blocker is resolved without replacing the
+staged release. A fresh live migration preflight is still required after renewed
+authorization; no live session/pane acceptance is inferred from these tests.
+
+## Original implementation commands and results — 2026-10-21
 
 | Check actually run | Result |
 |---|---|

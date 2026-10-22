@@ -9,6 +9,7 @@ import re
 import select
 import shlex
 import signal
+import stat
 import struct
 import subprocess
 import tempfile
@@ -126,7 +127,17 @@ class ParserTests(unittest.TestCase):
             directory = Path(folder).resolve()
             home = directory / "home"
             home.mkdir()
-            (home / ".tmux.conf").write_text("# original fixture\n")
+            originals = {
+                ".tmux.conf": (b"# original fixture\n", 0o640),
+                ".config/tmux/czuba-navigation.conf": (b"# original navigation\n", 0o600),
+                ".config/tmux/cheatsheet.txt": (b"original shortcuts\n", 0o644),
+            }
+            helpers = (".config/tmux/show-shortcuts.sh", ".config/tmux/shortcuts.lesskey")
+            for name, (data, mode) in originals.items():
+                path = home / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(data)
+                path.chmod(mode)
             for name in ("tmux-dotbar/dotbar.tmux", "tpm/tpm"):
                 path = home / ".tmux/plugins" / name
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -137,11 +148,31 @@ class ParserTests(unittest.TestCase):
                 release = deployment.stage()
                 backup = deployment.migrate(release, "tmux")
                 self.assertEqual(deployment.current(), release)
+                journal = json.loads((deployment.root / "backups" / backup / "backup.json").read_text())
+                self.assertIsNone(journal["current_before"])
+                self.assertEqual(len(journal["entries"]), 5)
+                self.assertEqual(sum(item["existed"] for item in journal["entries"]), 3)
+                for item in journal["entries"]:
+                    path = home / item["target"]
+                    self.assertEqual(os.readlink(path), deployment.link_target(item))
+                    self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o444)
+                for name, (data, mode) in originals.items():
+                    saved = deployment.root / "backups" / backup / "files" / name
+                    self.assertEqual(saved.read_bytes(), data)
+                    self.assertEqual(stat.S_IMODE(saved.stat().st_mode), mode)
                 self.assertIn("Ctrl+F -> Alt+h/l", (home / ".config/tmux/cheatsheet.txt").read_text())
                 self.assertFalse((home / ".config/ghostty/config.ghostty").exists())
                 deployment.restore(backup)
-            self.assertEqual((home / ".tmux.conf").read_text(), "# original fixture\n")
-            self.assertFalse((home / ".tmux.conf").is_symlink())
+                deployment.restore(backup)
+            for name, (data, mode) in originals.items():
+                path = home / name
+                self.assertFalse(path.is_symlink())
+                self.assertEqual(path.read_bytes(), data)
+                self.assertEqual(stat.S_IMODE(path.stat().st_mode), mode)
+            for name in helpers:
+                self.assertFalse(os.path.lexists(home / name))
+            self.assertFalse(os.path.lexists(deployment.root / "current"))
+            deployment.receipt(release, parse=False)
 
     def test_complete_rendered_configuration_parses_without_loading_plugins(self):
         with tempfile.TemporaryDirectory(prefix="dotfiles-parse-") as folder:

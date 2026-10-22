@@ -109,14 +109,19 @@ The tool copies every existing exact target, preserves its content and POSIX
 mode with copy2, verifies those backups, and records absent targets. All backups
 precede any live replacement. They are in
 `backups/BACKUP_ID/files/<original-relative-path>`, with a durable `backup.json`
-journal. Record that ID and path before any separately approved reload.
+journal. Backup journal schema 2 also records current_before (null for absence,
+otherwise the exact symlink text), current_after, and every declared live path
+across components. These records precede pointer/file changes. Record that ID
+and path before any separately approved reload.
 ACL/resource-fork preservation is not certified by these tests.
 
 The first migration establishes `current -> releases/ID`. It replaces each live
 file through an adjacent temporary symlink plus atomic rename. Parent-directory
 symlinks, unknown live symlinks and nonregular targets are refused. Adding a
 component later must use the existing current release; migration cannot silently
-activate a different release.
+activate a different release. An older current release remains valid for
+migration even when a newer release has been staged; the newer one stays inactive.
+Pointer drift after the backup is refused rather than overwritten.
 
 **The set of live paths is not switched atomically.** A failure can leave some
 old files and some links to the complete new release. The prepared journal blocks
@@ -171,8 +176,26 @@ python3 scripts/deploy.py restore --backup BACKUP_ID --approve
 
 Restoration validates every backup and target first, refuses user drift, restores
 original contents/modes by adjacent rename and removes only managed links whose
-original files were absent. Partial restoration remains resumable and blocks
-activation. It retains releases, the deployment pointer and empty directories.
+original files were absent. **Files are restored before the pointer.** If the
+pointer originally did not exist, restoration removes it only after checking all
+declared live paths from this and other backup journals for remaining dependencies,
+including relative links and aliases. If another component still uses current,
+its backup must be restored first. Existing pointer text is preserved exactly;
+an unexpected replacement, deletion or different target is refused. Migration
+still cannot switch releases; undo later activations through their separate
+rollback procedure before restoring the initial migration.
+
+The durable restoring journal blocks migration/activation until recovery is
+complete. A failed file operation, dependency check, pointer operation or journal
+finalization returns failure and keeps enough state to retry the same restore
+command. Already restored files are validated and skipped. Repeating a successful
+restore validates all backups, originals and the original pointer state without
+rewriting or deleting anything. New user changes cause a refusal.
+
+Releases, backups and empty directories are retained. Legacy schema-1 backup
+journals lack the original pointer state and require reviewed manual recovery;
+the tool never guesses that it was absent. **Release receipts and the payload
+manifest remain schema 1** and existing staged releases remain usable unchanged.
 No release garbage collector is provided: loaded tmux helpers may still use old
 release paths.
 
@@ -208,7 +231,9 @@ Cmd+1–9 while preserving the user's working panes.
 
 - Parser/dependency/hash/drift failures stop before activation.
 - A partial migration/restoration retains its original-file journal and blocks
-  further activation; no automatic recovery operation is implied.
+  further migration/activation (prepared or restoring); no automatic recovery
+  operation is implied. A restore is marked restored only after verifying the
+  file states, restoring/verifying the pointer, and syncing its directory.
 - Pointer replacement failure keeps the old pointer; a crash after replacement
   may leave the new pointer and a prepared history event. Inspect both.
 - fsync and same-directory rename improve local filesystem durability. They are

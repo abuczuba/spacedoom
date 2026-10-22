@@ -7,6 +7,7 @@ Tests pass an isolated home/state root; production defaults are never used there
 from __future__ import annotations
 
 import argparse
+from collections import deque
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import fcntl
@@ -36,6 +37,15 @@ def identifier(value: str) -> str:
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,100}", value):
         raise DeployError("Invalid release/backup identifier")
     return value
+
+
+def pointer_release(target: str) -> str:
+    if not isinstance(target, str):
+        raise DeployError("Invalid current symlink target")
+    parts = PurePosixPath(target).parts
+    if len(parts) != 2 or parts[0] != "releases":
+        raise DeployError("current points outside the managed releases")
+    return identifier(parts[1])
 
 
 def relative(value: str) -> Path:
@@ -166,18 +176,22 @@ class Deployment:
             raise DeployError("Release directory is missing")
         return path
 
-    def current(self) -> str | None:
+    def current_target(self) -> str | None:
+        """Read the exact link text without requiring a healthy release to recover."""
         link = self.root / "current"
         if not link.is_symlink():
             if link.exists():
                 raise DeployError("current is not a managed symlink")
             return None
-        target = os.readlink(link)
-        parts = PurePosixPath(target).parts
-        if len(parts) != 2 or parts[0] != "releases":
-            raise DeployError("current points outside the managed releases")
-        self.release_dir(parts[1])
-        return identifier(parts[1])
+        return os.readlink(link)
+
+    def current(self) -> str | None:
+        target = self.current_target()
+        if target is None:
+            return None
+        release = pointer_release(target)
+        self.release_dir(release)
+        return release
 
     def live(self, item: dict) -> Path:
         path = self.home / relative(item["target"])
@@ -315,7 +329,7 @@ class Deployment:
         no_links(directory, self.root)
         for path in directory.glob("*/backup.json"):
             no_links(path, self.root)
-            if json.loads(path.read_text())["status"] == "prepared":
+            if json.loads(path.read_text())["status"] in {"prepared", "restoring"}:
                 raise DeployError(f"Incomplete migration/restore; recover backup {path.parent.name} first")
 
     def adopted(self) -> set[str]:
@@ -344,9 +358,11 @@ class Deployment:
     def migrate(self, release: str, component: str) -> str:
         self.pending()
         record = self.receipt(release)
-        current = self.current()
+        current_before = self.current_target()
+        current = pointer_release(current_before) if current_before is not None else None
         if current not in {None, release}:
             raise DeployError("Migration cannot switch an existing current pointer; activate separately")
+        current_after = current_before if current is not None else "releases/" + release
         items = [item for item in record["manifest"]["files"] if item["component"] == component]
         if not items:
             raise DeployError("Unknown component")
@@ -365,7 +381,9 @@ class Deployment:
         backup = stamp()
         directory = self.root / "backups" / backup
         directory.mkdir(mode=0o700)
-        journal = {"schema": 1, "release": release, "status": "prepared", "entries": entries}
+        journal = {"schema": 2, "release": release, "status": "prepared", "entries": entries,
+                   "current_before": current_before, "current_after": current_after,
+                   "targets": [item["target"] for item in record["manifest"]["files"]]}
         # All content/mode backups precede the first live replacement.
         for item in entries:
             if item["existed"]:
@@ -381,9 +399,13 @@ class Deployment:
             if path.is_dir():
                 sync_dir(path)
         atomic_json(directory / "backup.json", journal)
+        if self.current_target() != current_before:
+            raise DeployError(f"Current pointer changed after backup; recover backup {backup}")
         if current is None:
-            atomic_link(self.root / "current", "releases/" + release)
+            atomic_link(self.root / "current", current_after)
         for item in entries:
+            if self.current_target() != current_after:
+                raise DeployError(f"Current pointer changed during migration; recover backup {backup}")
             path = self.live(item)
             if path.is_symlink() or (path.exists() != item["existed"]) or (
                 path.exists() and (digest(path.read_bytes()) != item["sha256"] or stat.S_IMODE(path.stat().st_mode) != item["mode"])
@@ -440,16 +462,68 @@ class Deployment:
                 return previous
         raise DeployError("No previous activation; use the initial migration backup instead")
 
+    def depends_on_current(self, path: Path) -> bool:
+        """Follow only the inspected path's symlink chain, never scan the home tree."""
+        pointer = self.root / "current"
+        pending = deque(path.parts[1:])
+        resolved = Path(path.anchor)
+        links = 0
+        while pending:
+            part = pending.popleft()
+            if part == "..":
+                resolved = resolved.parent
+                continue
+            resolved = resolved / part
+            # Check before following the pointer or collapsing any later '..'.
+            if resolved == pointer:
+                return True
+            if resolved.is_symlink():
+                links += 1
+                if links > 40:
+                    raise DeployError("Cannot establish current dependencies: symlink loop or excessive depth")
+                target = Path(os.readlink(resolved))
+                resolved = Path(target.anchor) if target.is_absolute() else resolved.parent
+                pending.extendleft(reversed(target.parts[1:] if target.is_absolute() else target.parts))
+        return False
+
+    def current_dependents(self, journal: dict) -> list[Path]:
+        # Include every declared component, skipped managed targets, and targets
+        # from later backups. Recovery must not orphan another component's links.
+        targets = set(journal["targets"])
+        for path in (self.root / "backups").glob("*/backup.json"):
+            no_links(path, self.root)
+            other = json.loads(path.read_text())
+            targets.update(other.get("targets", []))
+            targets.update(item["target"] for item in other["entries"])
+        return [path for target in sorted(targets)
+                if self.depends_on_current(path := self.live({"target": target}))]
+
+    @staticmethod
+    def original_matches(path: Path, item: dict) -> bool:
+        if not item["existed"]:
+            return not path.exists() and not path.is_symlink()
+        return (not path.is_symlink() and path.is_file()
+                and digest(path.read_bytes()) == item["sha256"]
+                and stat.S_IMODE(path.stat().st_mode) == item["mode"])
+
     def restore(self, backup: str) -> None:
         directory = self.root / "backups" / identifier(backup)
         no_links(directory, self.root)
         journal_file = directory / "backup.json"
         no_links(journal_file, directory)
         journal = json.loads(journal_file.read_text())
-        if journal.get("schema") != 1 or journal.get("status") not in {"prepared", "migrated", "restored"}:
+        if journal.get("schema") == 1:
+            raise DeployError("Legacy backup has no original pointer state; reviewed manual recovery required")
+        if journal.get("schema") != 2 or journal.get("status") not in {"prepared", "migrated", "restoring", "restored"}:
             raise DeployError("Invalid backup journal")
-        if journal["status"] == "restored":
-            raise DeployError("Backup is already restored")
+        before, after = journal["current_before"], journal["current_after"]
+        release = identifier(journal["release"])
+        if (pointer_release(after) != release
+                or before is not None and pointer_release(before) != release):
+            raise DeployError("Invalid recorded pointer state")
+        observed = self.current_target()
+        if observed != after and observed != before:
+            raise DeployError("Current pointer changed; refusing restore")
         # Inspect every target and backup before restoring any target. Newer user
         # changes are never overwritten. A partially completed restore is resumable.
         work = []
@@ -460,17 +534,25 @@ class Deployment:
                 no_links(saved, directory)
                 if not saved.is_file() or digest(saved.read_bytes()) != item["sha256"] or stat.S_IMODE(saved.stat().st_mode) != item["mode"]:
                     raise DeployError("Backup content or permissions changed")
-            original = (not path.is_symlink() and path.is_file() and item["existed"]
-                        and digest(path.read_bytes()) == item["sha256"]
-                        and stat.S_IMODE(path.stat().st_mode) == item["mode"])
-            if original or not path.exists() and not path.is_symlink() and not item["existed"]:
+            if self.original_matches(path, item):
                 continue
             if not self.is_managed(item):
                 raise DeployError(f"Live target drift; refusing restore: {path}")
             work.append((item, path, saved))
-        journal["status"] = "prepared"
+        # The old pointer is acceptable only before any migration write, or after
+        # all file restores and the pointer restore completed but finalization
+        # failed. A missing/replaced pointer with outstanding work is drift.
+        if observed != after and (work or journal["status"] == "migrated"):
+            raise DeployError("Current pointer changed; refusing restore")
+        if journal["status"] == "restored":
+            if work or observed != before:
+                raise DeployError("Restored state changed; refusing repeated restore")
+            return
+        journal["status"] = "restoring"
         atomic_json(directory / "backup.json", journal)
         for item, path, saved in work:
+            if self.current_target() != observed:
+                raise DeployError("Current pointer changed during restore; recovery remains pending")
             if not self.is_managed(item):
                 raise DeployError("Live target changed during restore; recovery remains pending")
             if item["existed"]:
@@ -486,6 +568,25 @@ class Deployment:
             else:
                 path.unlink()
                 sync_dir(path.parent)
+        # Files always precede the pointer. Leave the journal pending after any
+        # error, including a failed pointer fsync or final journal publication.
+        for item in journal["entries"]:
+            if not self.original_matches(self.live(item), item):
+                raise DeployError("File restoration incomplete; recovery remains pending")
+        if self.current_target() != observed:
+            raise DeployError("Current pointer changed during restore; recovery remains pending")
+        if before is None:
+            if self.current_dependents(journal):
+                raise DeployError("Live configuration still depends on current; restore dependent backups first")
+            if self.current_target() != observed:
+                raise DeployError("Current pointer changed during restore; recovery remains pending")
+            if observed is not None:
+                (self.root / "current").unlink()
+        elif observed != before:
+            atomic_link(self.root / "current", before)
+        if self.current_target() != before:
+            raise DeployError("Pointer restoration incomplete; recovery remains pending")
+        sync_dir(self.root)
         journal["status"] = "restored"
         atomic_json(directory / "backup.json", journal)
 
@@ -537,7 +638,7 @@ def main() -> int:
                     print("Rolled back to: " + deployment.rollback(args.expect_current))
                 elif args.action == "restore":
                     deployment.restore(args.backup)
-                    print("Original files restored; deployment pointer retained")
+                    print("Original files and previous deployment pointer state restored")
             print("No application was reloaded or restarted")
         return 0
     except (DeployError, ValidationError, OSError, ValueError, KeyError) as exc:

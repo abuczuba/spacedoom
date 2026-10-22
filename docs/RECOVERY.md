@@ -40,8 +40,40 @@ python3 scripts/deploy.py restore --backup BACKUP_ID --approve
 ```
 
 Both operations preserve processes and perform no reload. The restoration tool
-also removes newly introduced helper links when their originals were absent;
-it retains empty directories and deployment releases/current for inspection.
+first restores original files and removes helper links recorded as originally
+absent. It then returns current to the recorded current_before state: null means
+remove it, otherwise preserve the exact prior symlink target. Releases, backups
+and empty directories remain for inspection. Backup journal schema 2 is separate
+from the unchanged schema-1 release receipt/manifest; existing releases do not
+need to be restaged.
+
+Review current_before, current_after, entries and targets in backup.json before
+restoration. The observed pointer must match current_after. An interruption
+before migration creates current, or after restore removes it but before journal
+finalization, is also recoverable when every original file is already restored.
+Unexpected pointer/file changes are refused, including on a repeated restore.
+Never replace unexpected state merely to silence that refusal; review what
+changed and obtain approval for its recovery.
+
+If restore fails partway, keep the backup, releases and journal. A restoring
+status blocks new migration/activation. After reviewing and resolving the cause,
+retry the same approved restore command; it validates and skips completed work.
+Even failure after pointer removal but before journal finalization is retryable.
+Repeating a completed restore validates the recovered state and succeeds without
+new file/pointer writes. A failure returns nonzero and prints no success message.
+
+If another component still links through current, restore its backup before the
+backup that originally created current. The tool checks all declared live paths
+across backup journals, including relative links and symlink aliases, before
+removing the pointer. An unresolved symlink chain fails safely; recovery does
+not scan arbitrary home files for undeclared targets. A separately activated
+release must be rolled back through its
+own approved operation before initial-migration restoration.
+
+Legacy schema-1 backup journals do not identify the prior pointer state. The
+tool refuses automatic restoration of those journals; use a reviewed manual
+plan and independent evidence instead of guessing. No production backup existed
+when schema 2 was introduced.
 
 ## Emergency: change the pointer without Python or applications
 
@@ -92,9 +124,29 @@ Apply the same reviewed method to `.config/tmux/czuba-navigation.conf` and
 `.config/tmux/cheatsheet.txt` from that exact backup. Do not copy a whole
 directory or write with cp directly through a live symlink. Inspect permissions
 with `ls -l`. Preserve backups and all releases until recovery is accepted.
-New helper links can be left temporarily for inspection; the normal restore
-command removes only links recorded as originally absent. Do not delete an
-unexpected regular file or link.
+The normal restore command removes only links recorded as originally absent.
+For manual recovery, inspect each helper link against that journal and remove
+only the exact expected managed link. Do not delete an unexpected file or link.
+
+**Restore the pointer last.** Before removing current, check every declared
+target in the journal and other backup journals (including other components),
+and any known manually created aliases. All links that depend on current must
+be gone. Do not recursively scan private home data. If dependency checks are
+uncertain, leave the pointer in place and obtain a reviewed recovery plan.
+
+Only if current_before was null, current still matches current_after, all file
+restores have been verified and no live link depends on it, the approved final
+manual step is:
+
+```sh
+/bin/rm "$HOME/.local/share/dotfiles-active/current"
+```
+
+If current_before recorded an existing link, preserve/restore that exact text
+using the adjacent ln + mv -fh method above; do not derive a different spelling
+from its resolved path. Preserve backup.json rather than marking manual recovery
+complete by hand. Review the resulting file/pointer states before resuming the
+tool, and never run a deployment writer concurrently with manual recovery.
 
 Restoring files or the pointer cannot change already loaded tmux bindings. Keep
 using this independent Terminal shell. A tmux/Ghostty reload is a separate

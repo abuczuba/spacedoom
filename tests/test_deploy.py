@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import io
 import os
 from pathlib import Path
 import stat
@@ -9,6 +10,7 @@ import sys
 import tempfile
 import unittest
 import fcntl
+from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
 
 import deploy
@@ -59,6 +61,21 @@ class DeploymentTests(unittest.TestCase):
     def second(self):
         (self.repo / "configs/main").write_text("second @RELEASE@\n")
         return self.mutate("stage")
+
+    def journal(self, backup):
+        return json.loads((self.root / "backups" / backup / "backup.json").read_text())
+
+    def assert_originals(self):
+        self.assertFalse(self.original.is_symlink())
+        self.assertEqual(self.original.read_bytes(), b"original config\n")
+        self.assertEqual(stat.S_IMODE(self.original.stat().st_mode), 0o640)
+        self.assertFalse(os.path.lexists(self.home / ".config/tmux/helper"))
+
+    def restore_cli(self, backup):
+        return subprocess.run([sys.executable, "-B", str(Path(deploy.__file__)),
+                               "--repo", str(self.repo), "--home", str(self.home),
+                               "--state-root", str(self.root), "restore", "--backup", backup,
+                               "--approve"], text=True, capture_output=True)
 
     def test_stage_is_independent_and_has_pinned_references(self):
         release = self.mutate("stage")
@@ -123,6 +140,7 @@ class DeploymentTests(unittest.TestCase):
         self.assertEqual(self.original.read_bytes(), b"original config\n")
         self.assertEqual(stat.S_IMODE(self.original.stat().st_mode), 0o640)
         self.assertFalse((self.home / ".config/tmux/helper").exists())
+        self.assertFalse(os.path.lexists(self.root / "current"))
 
     def test_component_migration_does_not_activate_another_release(self):
         first, _ = self.first()
@@ -208,6 +226,293 @@ class DeploymentTests(unittest.TestCase):
         self.assertEqual(self.original.read_bytes(), b"original config\n")
         self.assertFalse(self.original.is_symlink())
         self.assertFalse((self.home / ".config/tmux/helper").exists())
+        self.assertFalse(os.path.lexists(self.root / "current"))
+
+    def test_initial_restore_recovers_absent_pointer_and_repeats_without_writes(self):
+        release, backup = self.first()
+        journal = self.journal(backup)
+        self.assertEqual(journal["schema"], 2)
+        self.assertIsNone(journal["current_before"])
+        self.assertEqual(journal["current_after"], "releases/" + release)
+        self.assertEqual(set(journal["targets"]), {item["target"] for item in self.manifest["files"]})
+        self.mutate("restore", backup)
+        self.assert_originals()
+        self.assertFalse(os.path.lexists(self.root / "current"))
+        saved = self.root / "backups" / backup / "files/.tmux.conf"
+        self.assertEqual(saved.read_bytes(), b"original config\n")
+        self.assertEqual(stat.S_IMODE(saved.stat().st_mode), 0o640)
+        unrelated = self.root / "keep-this-file"
+        unrelated.write_text("unrelated state")
+        with patch.object(deploy, "atomic_json", side_effect=AssertionError("Repeat must not write")):
+            self.mutate("restore", backup)
+            self.mutate("restore", backup)
+        self.assert_originals()
+        self.assertEqual(unrelated.read_text(), "unrelated state")
+        self.assertEqual(self.journal(backup)["status"], "restored")
+        self.deployment.receipt(release)
+
+    def test_restore_preserves_exact_older_current_with_newer_release_inactive(self):
+        older = self.mutate("stage")
+        newer = self.second()
+        exact_target = "releases/./" + older
+        deploy.atomic_link(self.root / "current", exact_target)
+        with self.assertRaisesRegex(DeployError, "cannot switch"):
+            self.mutate("migrate", newer, "tmux")
+        backup = self.mutate("migrate", older, "tmux")
+        self.assertEqual(os.readlink(self.root / "current"), exact_target)
+        journal = self.journal(backup)
+        self.assertEqual(journal["current_before"], exact_target)
+        self.assertEqual(journal["current_after"], exact_target)
+        self.mutate("restore", backup)
+        self.mutate("restore", backup)
+        self.assert_originals()
+        self.assertEqual(os.readlink(self.root / "current"), exact_target)
+        self.assertEqual(self.deployment.current(), older)
+        self.deployment.receipt(newer)
+
+    def test_migration_interrupted_before_pointer_creation_restores_cleanly(self):
+        release = self.mutate("stage")
+        with patch.object(deploy, "atomic_link", side_effect=OSError("injected initial pointer failure")):
+            with self.assertRaises(OSError):
+                self.mutate("migrate", release, "tmux")
+        backup = next((self.root / "backups").iterdir()).name
+        self.assertEqual(self.journal(backup)["status"], "prepared")
+        self.assertIsNone(self.deployment.current())
+        self.mutate("restore", backup)
+        self.mutate("restore", backup)
+        self.assert_originals()
+        self.assertFalse(os.path.lexists(self.root / "current"))
+
+    def test_restore_refuses_unexpected_pointer_states_before_touching_files(self):
+        release, backup = self.first()
+        other = self.second()
+        pointer = self.root / "current"
+        for target in ("releases/" + other, "releases/./" + release, "/unrelated", None, "regular", "directory"):
+            with self.subTest(target=target):
+                pointer.unlink()
+                if target == "regular":
+                    pointer.write_text("unrelated pointer data")
+                elif target == "directory":
+                    pointer.mkdir()
+                elif target is not None:
+                    pointer.symlink_to(target)
+                original_link = os.readlink(self.original)
+                with self.assertRaises(DeployError):
+                    self.mutate("restore", backup)
+                self.assertEqual(os.readlink(self.original), original_link)
+                self.assertTrue((self.home / ".config/tmux/helper").is_symlink())
+                self.assertEqual(self.journal(backup)["status"], "migrated")
+                if target == "directory":
+                    pointer.rmdir()
+                elif target is not None:
+                    if target == "regular":
+                        self.assertEqual(pointer.read_text(), "unrelated pointer data")
+                    else:
+                        self.assertEqual(os.readlink(pointer), target)
+                    pointer.unlink()
+                pointer.symlink_to("releases/" + release)
+
+    def test_repeated_restore_refuses_new_user_files_and_changed_pointer(self):
+        release, backup = self.first()
+        self.mutate("restore", backup)
+        helper = self.home / ".config/tmux/helper"
+        helper.write_text("new user data")
+        with self.assertRaisesRegex(DeployError, "drift"):
+            self.mutate("restore", backup)
+        self.assertEqual(helper.read_text(), "new user data")
+        helper.unlink()
+        deploy.atomic_link(self.root / "current", "releases/" + release)
+        with self.assertRaisesRegex(DeployError, "Restored state changed"):
+            self.mutate("restore", backup)
+        self.assertEqual(self.deployment.current(), release)
+        self.assert_originals()
+
+    def test_partial_file_restore_is_resumable_and_cli_reports_failure(self):
+        release, backup = self.first()
+        helper = self.home / ".config/tmux/helper"
+        original_unlink = Path.unlink
+
+        def fail_helper(path, *args, **kwargs):
+            if path == helper:
+                raise OSError("injected helper removal failure")
+            return original_unlink(path, *args, **kwargs)
+
+        args = [str(Path(deploy.__file__)), "--repo", str(self.repo), "--home", str(self.home),
+                "--state-root", str(self.root), "restore", "--backup", backup, "--approve"]
+        stdout, stderr = io.StringIO(), io.StringIO()
+        with patch.object(Path, "unlink", autospec=True, side_effect=fail_helper), \
+                patch.object(sys, "argv", args), redirect_stdout(stdout), redirect_stderr(stderr):
+            self.assertEqual(deploy.main(), 1)
+        self.assertNotIn("Original files", stdout.getvalue())
+        self.assertIn("injected helper removal failure", stderr.getvalue())
+        self.assertEqual(self.original.read_bytes(), b"original config\n")
+        self.assertFalse(self.original.is_symlink())
+        self.assertTrue(helper.is_symlink())
+        self.assertEqual(self.deployment.current(), release)
+        self.assertEqual(self.journal(backup)["status"], "restoring")
+        with self.assertRaisesRegex(DeployError, "Incomplete"):
+            self.mutate("migrate", release, "ghostty")
+        for _ in range(2):
+            result = self.restore_cli(backup)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("previous deployment pointer state restored", result.stdout)
+        self.assert_originals()
+        self.assertIsNone(self.deployment.current())
+
+    def test_pointer_removal_failure_preserves_journal_and_can_retry(self):
+        release, backup = self.first()
+        original_unlink = Path.unlink
+
+        def fail_pointer(path, *args, **kwargs):
+            if path == self.root / "current":
+                self.assert_originals()
+                raise OSError("injected pointer removal failure")
+            return original_unlink(path, *args, **kwargs)
+
+        with patch.object(Path, "unlink", autospec=True, side_effect=fail_pointer):
+            with self.assertRaisesRegex(OSError, "pointer removal"):
+                self.mutate("restore", backup)
+        self.assertEqual(self.journal(backup)["status"], "restoring")
+        self.assertEqual(self.deployment.current(), release)
+        self.mutate("restore", backup)
+        self.assert_originals()
+        self.assertIsNone(self.deployment.current())
+
+    def test_interruption_after_pointer_removal_can_finalize_on_retry(self):
+        _, backup = self.first()
+        original_json = deploy.atomic_json
+
+        def fail_finalize(path, data, *args):
+            if path.name == "backup.json" and data["status"] == "restored":
+                raise OSError("injected final journal failure")
+            return original_json(path, data, *args)
+
+        with patch.object(deploy, "atomic_json", side_effect=fail_finalize):
+            with self.assertRaisesRegex(OSError, "final journal"):
+                self.mutate("restore", backup)
+        self.assert_originals()
+        self.assertIsNone(self.deployment.current())
+        self.assertEqual(self.journal(backup)["status"], "restoring")
+        self.mutate("restore", backup)
+        self.assertEqual(self.journal(backup)["status"], "restored")
+
+    def test_pointer_fsync_failure_after_unlink_is_reported_and_retryable(self):
+        _, backup = self.first()
+        original_sync = deploy.sync_dir
+
+        def fail_pointer_sync(path):
+            if path == self.root and not os.path.lexists(path / "current"):
+                raise OSError("injected pointer fsync failure")
+            return original_sync(path)
+
+        with patch.object(deploy, "sync_dir", side_effect=fail_pointer_sync):
+            with self.assertRaisesRegex(OSError, "fsync"):
+                self.mutate("restore", backup)
+        self.assert_originals()
+        self.assertIsNone(self.deployment.current())
+        self.assertEqual(self.journal(backup)["status"], "restoring")
+        self.mutate("restore", backup)
+        self.assertEqual(self.journal(backup)["status"], "restored")
+
+    def test_other_component_must_be_restored_before_removing_shared_pointer(self):
+        release, tmux_backup = self.first()
+        ghostty_backup = self.mutate("migrate", release, "ghostty")
+        with self.assertRaisesRegex(DeployError, "still depends on current"):
+            self.mutate("restore", tmux_backup)
+        self.assert_originals()
+        self.assertEqual(self.deployment.current(), release)
+        self.assertTrue((self.home / ".config/ghostty/config").is_symlink())
+        self.assertEqual(self.journal(tmux_backup)["status"], "restoring")
+        self.mutate("restore", ghostty_backup)
+        self.assertEqual(self.deployment.current(), release)
+        self.mutate("restore", tmux_backup)
+        self.assertIsNone(self.deployment.current())
+        self.assertFalse(os.path.lexists(self.home / ".config/ghostty/config"))
+
+    def test_skipped_managed_target_still_prevents_pointer_removal(self):
+        release = self.mutate("stage")
+        helper = self.home / ".config/tmux/helper"
+        helper.parent.mkdir(parents=True)
+        helper.symlink_to(self.root / "current/tmux/helper")
+        backup = self.mutate("migrate", release, "tmux")
+        self.assertEqual(len(self.journal(backup)["entries"]), 1)
+        with self.assertRaisesRegex(DeployError, "still depends on current"):
+            self.mutate("restore", backup)
+        self.assertTrue(helper.is_symlink())
+        self.assertEqual(self.deployment.current(), release)
+
+    def test_pointer_dependency_check_follows_relative_links_and_aliases(self):
+        release, backup = self.first()
+        other = self.home / ".config/ghostty/config"
+        other.parent.mkdir(parents=True)
+        alias = self.home / "pointer-alias"
+        alias.symlink_to(self.root / "current")
+        for target in (os.path.relpath(self.root / "current/tmux/helper", other.parent),
+                       os.path.relpath(alias / "tmux/helper", other.parent),
+                       str(self.root / "current" / ".." / release / "ghostty/config")):
+            with self.subTest(target=target):
+                other.symlink_to(target)
+                with self.assertRaisesRegex(DeployError, "still depends on current"):
+                    self.mutate("restore", backup)
+                self.assertEqual(self.deployment.current(), release)
+                self.assertEqual(os.readlink(other), target)
+                other.unlink()
+        self.mutate("restore", backup)
+        self.assertIsNone(self.deployment.current())
+
+    def test_pointer_drift_during_dependency_check_is_not_overwritten(self):
+        release, backup = self.first()
+        other = self.second()
+        original_check = self.deployment.current_dependents
+
+        def check_then_change_pointer(journal):
+            dependents = original_check(journal)
+            deploy.atomic_link(self.root / "current", "releases/" + other)
+            return dependents
+
+        with patch.object(self.deployment, "current_dependents", side_effect=check_then_change_pointer):
+            with self.assertRaisesRegex(DeployError, "Current pointer changed during restore"):
+                self.mutate("restore", backup)
+        self.assert_originals()
+        self.assertEqual(self.deployment.current(), other)
+        self.assertEqual(self.journal(backup)["status"], "restoring")
+
+    def test_pointer_drift_during_restoration_preserves_pending_state(self):
+        release, backup = self.first()
+        other = self.second()
+        original_replace = os.replace
+
+        def replace_then_change_pointer(source, destination):
+            result = original_replace(source, destination)
+            if destination == self.original:
+                deploy.atomic_link(self.root / "current", "releases/" + other)
+            return result
+
+        with patch.object(os, "replace", side_effect=replace_then_change_pointer):
+            with self.assertRaisesRegex(DeployError, "Current pointer changed during restore"):
+                self.mutate("restore", backup)
+        self.assertEqual(self.deployment.current(), other)
+        self.assertTrue((self.home / ".config/tmux/helper").is_symlink())
+        self.assertEqual(self.journal(backup)["status"], "restoring")
+        with self.assertRaisesRegex(DeployError, "Current pointer changed"):
+            self.mutate("restore", backup)
+        # Explicit recovery of the fixture's known pointer allows a safe retry.
+        deploy.atomic_link(self.root / "current", "releases/" + release)
+        self.mutate("restore", backup)
+        self.assert_originals()
+        self.assertIsNone(self.deployment.current())
+
+    def test_legacy_backup_pointer_state_is_not_guessed(self):
+        release, backup = self.first()
+        journal = self.journal(backup)
+        journal["schema"] = 1
+        for name in ("current_before", "current_after", "targets"):
+            del journal[name]
+        deploy.atomic_json(self.root / "backups" / backup / "backup.json", journal)
+        with self.assertRaisesRegex(DeployError, "Legacy backup"):
+            self.mutate("restore", backup)
+        self.assertTrue(self.original.is_symlink())
+        self.assertEqual(self.deployment.current(), release)
 
     def test_restore_refuses_new_user_edits_and_tampered_backups(self):
         _, backup = self.first()
