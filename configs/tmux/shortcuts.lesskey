@@ -1,0 +1,10 @@
+#command
+# Jump from the beginning so section keys work from anywhere in the document.
+1 goto-line /\^@daily\n
+2 goto-line /\^@tmux\n
+3 goto-line /\^@ghostty\n
+4 goto-line /\^@fish\n
+5 goto-line /\^@doom\n
+6 goto-line /\^@projects\n
+7 goto-line /\^@workmux\n
+8 goto-line /\^@desktop\n

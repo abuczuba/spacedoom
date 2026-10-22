@@ -1,0 +1,57 @@
+# OS/editor trash
+.DS_Store
+._*
+*.swp
+*.swo
+*~
+*.orig
+*.rej
+*.bak
+*.bak.*
+
+# Secret-bearing or machine-local material (not exhaustive)
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+**/.ssh/
+**/.gnupg/
+**/.aws/
+**/.config-backups/
+**/private/
+**/secrets/
+**/credentials/
+**/auth.json
+**/id_ed25519*
+**/id_rsa*
+**/*.pem
+**/*.p12
+**/*.pfx
+**/*.key
+**/*.kdbx
+
+# State, caches, sensitive exports
+**/.cache/
+**/.local/
+**/node_modules/
+**/.venv/
+**/__pycache__/
+**/tmux/resurrect/
+**/tmux/plugins/
+**/.tmux/plugins/
+**/sessions/
+**/cookies/
+**/browser-profile/
+**/BraveSoftware/
+**/Library/
+**/org/
+**/icloud/
+
+# Backups/archives should not be imported into Git
+backups/
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z

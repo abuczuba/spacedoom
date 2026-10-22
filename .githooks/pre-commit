@@ -1,0 +1,4 @@
+#!/bin/sh
+# Opt-in per-repo only: git config --local core.hooksPath .githooks
+set -eu
+python3 scripts/preflight.py

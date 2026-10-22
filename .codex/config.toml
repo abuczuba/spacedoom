@@ -1,0 +1,13 @@
+# Project-local Codex defaults (effective when Codex trusts this repository).
+# This is a preference layer, not an OS-enforced policy against CLI overrides.
+approval_policy = "on-request"
+approvals_reviewer = "user"
+sandbox_mode = "workspace-write"
+
+[sandbox_workspace_write]
+network_access = false
+
+[shell_environment_policy]
+# Filter environment-variable names containing common secret indicators.
+# This is additional hygiene; it cannot prevent reading files containing secrets.
+ignore_default_excludes = false

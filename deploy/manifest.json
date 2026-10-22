@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "files": [
+    {"source": "configs/tmux/tmux.conf", "path": "tmux/tmux.conf", "target": ".tmux.conf", "component": "tmux", "syntax": "tmux", "references": ["tmux/czuba-navigation.conf"]},
+    {"source": "configs/tmux/czuba-navigation.conf", "path": "tmux/czuba-navigation.conf", "target": ".config/tmux/czuba-navigation.conf", "component": "tmux", "syntax": "tmux", "references": ["tmux/show-shortcuts.sh"]},
+    {"source": "configs/tmux/cheatsheet.txt", "path": "tmux/cheatsheet.txt", "target": ".config/tmux/cheatsheet.txt", "component": "tmux", "syntax": "text", "references": []},
+    {"source": "configs/tmux/show-shortcuts.sh", "path": "tmux/show-shortcuts.sh", "target": ".config/tmux/show-shortcuts.sh", "component": "tmux", "syntax": "sh", "references": ["tmux/cheatsheet.txt", "tmux/shortcuts.lesskey"]},
+    {"source": "configs/tmux/shortcuts.lesskey", "path": "tmux/shortcuts.lesskey", "target": ".config/tmux/shortcuts.lesskey", "component": "tmux", "syntax": "text", "references": []},
+    {"source": "configs/ghostty/config.ghostty", "path": "ghostty/config.ghostty", "target": ".config/ghostty/config.ghostty", "component": "ghostty", "syntax": "ghostty", "references": []}
+  ],
+  "dependencies": [
+    {"command": "tmux"},
+    {"command": "ghostty"},
+    {"command": "workmux"},
+    {"path": "/opt/homebrew/bin/fish", "executable": true},
+    {"path": "/bin/sh", "executable": true},
+    {"path": "/usr/bin/awk", "executable": true},
+    {"path": "/usr/bin/less", "executable": true},
+    {"path": "/usr/bin/pbcopy", "executable": true},
+    {"home_path": ".tmux/plugins/tmux-dotbar/dotbar.tmux", "executable": true},
+    {"home_path": ".tmux/plugins/tpm/tpm", "executable": true}
+  ],
+  "empty_guards": [
+    ".config/ghostty/config",
+    "Library/Application Support/com.mitchellh.ghostty/config.ghostty",
+    "Library/Application Support/com.mitchellh.ghostty/config"
+  ],
+  "less_min_version": 668,
+  "tmux_min_version": "3.8"
+}

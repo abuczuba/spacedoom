@@ -1,0 +1,223 @@
+========================================================================
+SHORTCUTS / TERMINAL + EDITOR
+========================================================================
+
+  1 Daily     2 tmux     3 Ghostty     4 Fish
+  5 Doom      6 cdev     7 workmux     8 Desktop
+
+  1-8 jump to a section. / searches; n/N next/previous match.
+  j/k or arrows scroll; Space/b page; g/G top/end; q closes.
+  Search a section by tag, for example /@tmux.
+
+  Cmd = Command. Opt = Option/Alt. Ctrl = Control. SPC = Space.
+  Ctrl+F -> key: press Ctrl+F, RELEASE, then press the key.
+  h / j / k / l always means left / down / up / right.
+
+  Configured = found in local configuration on 2026-10-21.
+  Defaults = installed tool defaults; plugins/modes can override them.
+  Reference = not verified in a running application. Use its help.
+
+@daily / 1 / EVERYDAY MOVES
+------------------------------------------------------------------------
+  Cmd+Shift+P                | Open this guide
+  Cmd+Shift+H/J/K/L          | Move between tmux panes; no wrap
+  Cmd+Shift+V / S            | Split left/right or top/bottom
+  Cmd+Shift+N                | New tmux window in this directory
+  Cmd+1 .. Cmd+9             | Select tmux window by number
+  Ctrl+F -> Alt+h/l          | Move this window left/right
+  Cmd+Shift+Z                | Zoom or unzoom this pane
+  Cmd+Shift+A                | Open workmux dashboard
+  Cmd+Shift+Y                | Copy entire tmux pane history
+
+  Reordering keeps focus, stops at the ends and numbers windows from 1.
+  Alt+h/l means Opt+h/l on this Mac. Default L and </> are preserved.
+
+@tmux / 2 / PANES, WINDOWS + HISTORY
+------------------------------------------------------------------------
+  Configured: Ctrl+F; custom navigation and window actions.
+  Other rows below use tmux 3.8 defaults. No running-server verification.
+
+  PANES
+  Ctrl+F -> h/j/k/l          | Move; stop at outer edges
+  Ctrl+F -> Ctrl+H/J/K/L     | Same directions with Control
+  Ctrl+F -> v or |           | Split left/right
+  Ctrl+F -> s or -           | Split top/bottom
+  Ctrl+F -> z                | Zoom/unzoom current pane
+  Ctrl+F -> q                | Show pane numbers; type a number
+  Ctrl+F -> ;                | Return to last pane
+  Ctrl+F -> o                | Cycle through panes
+  Ctrl+F -> Alt+arrows       | Resize by 5 cells; repeatable
+  Ctrl+F -> Space            | Cycle layouts
+  Ctrl+F -> Alt+1 / 2        | Even horizontal / vertical layout
+  Ctrl+F -> Alt+3 / 4 / 5    | Main horizontal / vertical / tiled
+
+  WINDOWS
+  Ctrl+F -> n                | New window in pane's directory
+  Ctrl+F -> 1 .. 9           | Select window by current number
+  Ctrl+F -> Alt+h/l          | Swap with previous/next window
+  Ctrl+F -> p                | Select previous window
+  Ctrl+F -> :                | Command prompt; next-window goes forward
+  Ctrl+F -> ,                | Rename window
+  Ctrl+F -> f                | Find a window
+  Ctrl+F -> w or Ctrl+W      | workmux dashboard popup
+
+  HISTORY / VI COPY MODE
+  Ctrl+F -> [                | Enter copy/history mode
+  h/j/k/l; g/G               | Move; oldest/newest history
+  Ctrl+U / Ctrl+D            | Half-page up/down inside copy mode
+  Ctrl+B / Ctrl+F            | Full page up/down inside copy mode
+  / or ?; n/N                | Search forward/backward; repeat/reverse
+  Space, then Enter          | Begin selection, then copy + exit
+  Escape                     | Clear selection; stay in copy mode
+  q                          | Exit copy mode
+  Ctrl+F -> ]                | Paste tmux buffer
+  Ctrl+F -> =                | Choose a tmux buffer
+  Ctrl+F -> Y                | Copy entire pane history via pbcopy
+
+  SESSION / HELP
+  Ctrl+F -> ?                | Open this guide
+  Ctrl+F -> Q                | Show tmux bindings with attached notes
+  Ctrl+F -> Ctrl+F           | Send a literal Ctrl+F to the application
+  Ctrl+F -> $                | Rename session
+  Ctrl+F -> d                | Detach; programs continue running
+  Ctrl+F -> L                | Switch to previous client (default)
+  Ctrl+F -> r                | Reload tmux config and plugin setup
+  Ctrl+F -> x                | Confirm closing current pane
+  Ctrl+F -> &                | Confirm closing whole window
+
+  At the : prompt: choose-tree opens the session/window browser;
+  switch-client -t NAME changes session. Closing panes ends their jobs.
+  tmux buffers and the macOS clipboard are separate stores.
+
+@ghostty / 3 / TERMINAL LAYER
+------------------------------------------------------------------------
+  Configured: Cmd+Shift+P, Cmd+Ctrl+P and Command-driven tmux shortcuts.
+  The remaining entries are Ghostty 1.3.1 defaults.
+
+  Cmd+Ctrl+P                 | Ghostty command palette
+  Cmd+,                      | Open Ghostty configuration
+  Cmd+Shift+,                | Reload Ghostty configuration
+  Cmd+C / Cmd+V              | Copy terminal selection / paste clipboard
+  Cmd+F                      | Search Ghostty scrollback
+  Cmd+G / Cmd+Shift+G        | Next / previous search match
+  Cmd++ / Cmd+- / Cmd+0      | Font larger / smaller / reset
+  Cmd+Enter                  | Toggle fullscreen
+  Cmd+T / Cmd+N              | New Ghostty tab / native window
+  Cmd+Shift+[ / ]            | Previous / next Ghostty tab
+  Cmd+D / Cmd+Shift+D        | Native split right / down
+  Cmd+W                      | Close terminal surface
+  Cmd+Q                      | Quit Ghostty
+
+  Native Ghostty tabs/splits are separate from tmux windows/panes.
+  Ghostty search cannot see tmux history that has not been displayed.
+
+@fish / 4 / SHELL + FUZZY FINDER
+------------------------------------------------------------------------
+  Editing: Fish defaults. fzf: configured legacy binding defaults;
+  universal variables can select another binding set or disable fzf.
+
+  Tab                        | Complete command or path
+  Up / Down                  | History; type a prefix to narrow it
+  Right                      | Accept autosuggestion
+  Ctrl+F -> Ctrl+F           | Send Ctrl+F through tmux to Fish
+  Ctrl+A / Ctrl+E            | Start / end of command line
+  Ctrl+W / Ctrl+U            | Delete word / text before cursor
+  Ctrl+L                     | Clear display
+  Ctrl+R                     | fzf command history
+  Ctrl+T                     | fzf files/folders; insert selection
+  Opt+C / Opt+Shift+C        | fzf cd / include hidden directories
+  Ctrl+G / Ctrl+O            | fzf open / open in editor
+  cd -; pushd / popd         | Previous directory; directory stack
+  ll                         | Configured ls listing helper
+  gstatus / branch           | Git status / verbose branches
+  slog / vlog                | Recent / graphed Git history
+  fishrc / fconf             | Reload / edit Fish config
+
+  Ctrl+F alone is intercepted by tmux; use Right for autosuggestions.
+  Project-specific and obsolete Linux helpers are omitted here.
+
+@doom / 5 / EDITOR + ORG
+------------------------------------------------------------------------
+  Configured: Evil, Ivy, workspaces, Org and SPC f o.
+  Reference: other keys are conventional defaults, NOT runtime-verified.
+  Bindings depend on mode, buffer and terminal key delivery.
+
+  SPC h k                    | Describe the next key sequence
+  SPC h f                    | Describe a function
+  Escape; i / a; v / V       | Normal; insert/append; visual/line mode
+  h/j/k/l; w/b/e             | Move by character; move by word
+  0 / $; gg / G              | Start/end of line; start/end of buffer
+  Ctrl+U / Ctrl+D            | Half-page up/down
+  / or ?; n/N                | Search; repeat/reverse
+  u / Ctrl+R; yy/dd/p        | Undo/redo; yank/delete line/paste
+  :w                         | Save current file
+  SPC : or Alt+X             | Run command by name
+  Ctrl+G                     | Cancel a prompt or command
+  SPC f f / SPC f s          | Find file / save
+  SPC f r / SPC f p          | Recent file / Doom config file
+  SPC f o                    | Configured new Org file command
+  SPC b b / SPC b B          | Workspace buffer / any buffer
+  SPC b d / SPC b n/p        | Kill buffer / next or previous buffer
+  SPC p p / SPC p f          | Switch project / find project file
+  SPC p b / SPC p c          | Project buffer / compile
+  SPC w h/j/k/l              | Move between Emacs windows
+  SPC w v / SPC w s          | Emacs split right / below
+  SPC w q                    | Close Emacs window
+  SPC g g                    | Magit status
+  Alt+X org-agenda           | Open agenda by command name
+  Alt+X org-capture          | Open capture by command name
+
+  IN AN ORG BUFFER (reference; confirm with SPC h k)
+  Tab / Shift+Tab            | Fold subtree / cycle document
+  SPC m t / SPC m x          | TODO state / checkbox
+  SPC m e / SPC m '          | Export / edit source block
+  Ctrl+C Ctrl+C              | Context action; finish source editing
+  Ctrl+C Ctrl+L              | Insert/edit link
+  Ctrl+C Ctrl+O              | Open link
+  Opt+Enter / Opt+arrows     | Heading/item actions; context dependent
+
+  :q may exit Emacs when its last window closes.
+  Ctrl+X Ctrl+C exits Emacs. Emacs windows and tmux panes are separate.
+
+@projects / 6 / CDEV WORKSPACE
+------------------------------------------------------------------------
+  Configured function inspected; workspace launch not exercised here.
+
+  cdev                       | Open/reuse current Git project's window
+  cdev /path/to/repo         | Open/reuse specified Git project
+
+  Quote paths containing spaces. Matching name and Git root reuses a
+  window; a mismatched path is refused. New windows use Doom left and
+  ordinary Codex right, 50/50, rooted in the project.
+
+@workmux / 7 / WORKTREES + DASHBOARD
+------------------------------------------------------------------------
+  Configured: wm alias, dashboard bindings, editor/agent pane layout.
+  Reference: CLI subcommands below have not been version-verified.
+
+  Cmd+Shift+A                | Open dashboard popup
+  Ctrl+F -> w or Ctrl+W      | Same dashboard
+  Ctrl+F -> Tab              | Configured workmux last-agent call
+  wm --help                  | Check commands supported by this version
+  wm list / wm status        | List worktrees / agent status
+  wm open NAME               | Open existing worktree window
+  wm path NAME               | Print worktree path
+
+  The configured last-agent call remains unverified. Workmux's pane
+  layout gives the agent 60%; cdev uses 50/50. add/remove/merge can
+  change worktrees or branches; inspect wm --help before using them.
+
+@desktop / 8 / AEROSPACE
+------------------------------------------------------------------------
+  Configured bindings; work only when AeroSpace is enabled and running.
+  Current enabled/disabled state has not been verified.
+
+  Ctrl+Opt+H/J/K/L           | Focus native window
+  Ctrl+Opt+Shift+H/J/K/L     | Move native window
+  Ctrl+Opt+1 / 2 / 3         | Switch workspace
+  Ctrl+Opt+Shift+1 / 2 / 3   | Move window to workspace
+  Ctrl+Opt+Tab               | Previous workspace
+
+========================================================================
+  1-8 sections   / search   n/N matches   g/G ends   q close
+========================================================================
