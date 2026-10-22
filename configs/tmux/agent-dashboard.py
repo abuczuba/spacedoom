@@ -31,11 +31,14 @@ WORKING_WAVE = (("#cc4650", "#000000"),  # Red light at the leading edge.
                 ("#b1b2b8", "#751b25"))  # Dark crimson fading into stone.
 # Untracked windows contribute nothing, including their titles. A cache being
 # cleared contributes until the refresh observes its now-empty workmux status.
+EXPIRED = ("#{&&:#{!=:#{@dotfiles-agent-state},done},"
+           "#{>=:#{t/d:@dotfiles-agent-ts},900}}")
 SIGNATURE = ("#{W:#{?#{||:#{||:#{@workmux_status},#{P:#{@workmux_pane_status}#{@dotfiles-agent-evidence}}},#{@dotfiles-agent}},"
              "#{window_id}|#{window_name}|#{P:#{pane_id}/#{pane_pid}/#{pane_dead}/"
              "#{pane_current_command}/#{@workmux_pane_status}/#{@dotfiles-agent-evidence};}"
-             "#{?@dotfiles-agent,#{>=:#{t/d:@dotfiles-agent-ts},900},},}}")
-TITLE_SLOT = (" #{?#{&&:#{@dotfiles-agent},#{&&:#{>=:#{t/d:@dotfiles-agent-ts},0},#{<:#{t/d:@dotfiles-agent-ts},900}}},"
+             "#{?@dotfiles-agent," + EXPIRED + ",},}}")
+TITLE_SLOT = (" #{?#{&&:#{@dotfiles-agent},#{&&:#{>=:#{t/d:@dotfiles-agent-ts},0},"
+              "#{||:#{==:#{@dotfiles-agent-state},done},#{<:#{t/d:@dotfiles-agent-ts},900}}}},"
               "#{E:@dotfiles-agent},#W}#{?@workmux_status,,} ")
 
 
@@ -84,6 +87,14 @@ def private_json(path):
     return value
 
 
+def evidence_fresh(state, stamp, now):
+    # A stopped turn is pending review, not a heartbeat. Keep its attention
+    # until another lifecycle event or invalidated launch identity clears it.
+    # Working/waiting evidence still expires if its event stream goes silent.
+    return (isinstance(stamp, int) and now >= stamp
+            and (state == "done" or now - stamp < TTL))
+
+
 def observable(record, pane, socket, boot, now):
     """Fail closed on old server/PID/pane identity, unknown/expired evidence."""
     state = record.get("status")
@@ -93,7 +104,7 @@ def observable(record, pane, socket, boot, now):
             or not record.get("agent_session_id") or pane["dead"] != "0"
             or pane["command"] not in {"codex", "codex-cli"}
             or state not in STATES or pane["raw"] != STATES[state]
-            or not isinstance(stamp, int) or not 0 <= now - stamp < TTL):
+            or not evidence_fresh(state, stamp, now)):
         return None
     return state
 
@@ -106,7 +117,7 @@ def own_observable(record, pane, socket, boot, now):
             or pane["dead"] != "0" or pane["command"] not in {"Python", "python3", "codex", "codex-cli"}
             or not pane.get("own", "").startswith(str(record.get("token")) + ":")
             or record.get("state") not in STATES
-            or not isinstance(stamp, int) or not 0 <= now - stamp < TTL):
+            or not evidence_fresh(record.get("state"), stamp, now)):
         return None
     return record["state"]
 
@@ -197,11 +208,11 @@ class Dashboard:
                 old = by_window.get(pane["window"])
                 if old is None or priority[pane["state"]] > priority[old["state"]]:
                     by_window[pane["window"]] = pane
-            windows = self.tm("list-windows", "-a", "-F", "#{window_id}\t#{@dotfiles-agent}\t#{@dotfiles-agent-ts}").splitlines()
+            windows = self.tm("list-windows", "-a", "-F", "#{window_id}\t#{@dotfiles-agent}\t#{@dotfiles-agent-ts}\t#{@dotfiles-agent-state}").splitlines()
             seen = set()
             writes = []
             for row in windows:
-                window, old, old_stamp = row.split("\t", 2)
+                window, old, old_stamp, old_state = row.split("\t", 3)
                 if window in seen:
                     continue
                 seen.add(window)
@@ -212,6 +223,9 @@ class Dashboard:
                 stamp = str(pane["stamp"]) if pane else "0"
                 if stamp != old_stamp and (pane or old_stamp):
                     writes += ["set-option", "-w", "-t", window, "@dotfiles-agent-ts", stamp, ";"]
+                state = pane["state"] if pane else ""
+                if state != old_state:
+                    writes += ["set-option", "-w", "-t", window, "@dotfiles-agent-state", state, ";"]
             if writes:
                 self.tm(*writes[:-1])
             previous = self.tm("show-options", "-gqv", "@dotfiles-status-interval-before")
@@ -336,6 +350,7 @@ class Dashboard:
             self.tm("set-hook", "-gu", "session-created[882]")
             for window in dict.fromkeys(self.tm("list-windows", "-a", "-F", "#{window_id}").splitlines()):
                 self.tm("set-option", "-w", "-t", window, "@dotfiles-agent", "")
+                self.tm("set-option", "-w", "-t", window, "@dotfiles-agent-state", "")
             interval = self.tm("show-options", "-gqv", "@dotfiles-status-interval-before")
             if interval:
                 self.tm("set-option", "-g", "status-interval", interval)

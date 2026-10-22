@@ -46,6 +46,40 @@ class DashboardTests(unittest.TestCase):
             self.assertIsNone(check(pane=self.pane | change))
         self.assertIsNone(check(now=1900))
 
+    def test_stopped_workmux_attention_outlives_lease_with_identity_checks(self):
+        record = self.record | dict(status="done")
+        pane = self.pane | dict(raw="✅")
+        def check(change=None, pane_change=None, now=1000 + 86400):
+            return dashboard.observable(record | (change or {}), pane | (pane_change or {}),
+                                        "/tmp/private", "100:222", now)
+        self.assertEqual(check(), "done")
+        self.assertIsNone(check(now=999))  # A future timestamp is never evidence.
+        for change in [dict(boot_id="old:222"), dict(pane_pid=456), dict(agent_session_id=None)]:
+            self.assertIsNone(check(change))
+        for change in [dict(dead="1"), dict(command="fish"), dict(raw="🤖")]:
+            self.assertIsNone(check(pane_change=change))
+        for state in ["working", "waiting"]:
+            self.assertIsNone(check(dict(status=state), dict(raw=dashboard.STATES[state])))
+
+    def test_stopped_cdev_attention_outlives_lease_with_identity_checks(self):
+        record = dict(socket="/tmp/private", pane="%2", boot="100:222", pid=123,
+                      token="launch-one", session="session", turn="turn", state="done", stamp=1000)
+        pane = self.pane | dict(command="Python", own="launch-one:2")
+        def check(change=None, pane_change=None, now=1000 + 86400):
+            return dashboard.own_observable(record | (change or {}), pane | (pane_change or {}),
+                                            "/tmp/private", "100:222", now)
+        self.assertEqual(check(), "done")
+        self.assertIsNone(check(now=999))
+        for change in [dict(ended=True), dict(boot="old:222"), dict(pid=456), dict(token="new-launch"),
+                       dict(session=None), dict(turn=None), dict(state="working"), dict(state="waiting")]:
+            self.assertIsNone(check(change))
+        for change in [dict(dead="1"), dict(command="fish"), dict(own="new-launch:2")]:
+            self.assertIsNone(check(pane_change=change))
+
+    def test_config_uses_same_native_title_expiry_as_renderer(self):
+        config = (REPO / "configs/tmux/agent-dashboard.conf").read_text()
+        self.assertIn("set -g @tmux-dotbar-window-status-format '" + dashboard.TITLE_SLOT + "'", config)
+
     def test_preview_palette_title_escaping_and_one_second_clock(self):
         for state in ["working", "done", "waiting", "idle"]:
             output = dashboard.title_format("a#{evil}\n'b", state)
@@ -373,6 +407,108 @@ class DashboardIntegration(unittest.TestCase):
                 self.assertNotEqual(value, second)
             else:
                 self.assertIn("●" if state == "done" else "!", value)
+
+    def test_native_title_and_monitor_expiry_preserve_only_stopped_state(self):
+        self.tm("set-option", "-w", "@dotfiles-agent-ts", str(int(time.time())))
+        clock = "#{t/d:@dotfiles-agent-ts}"
+        title = dashboard.TITLE_SLOT.replace(clock, "#{@test-evidence-age}")
+        signature = dashboard.SIGNATURE.replace(clock, "#{@test-evidence-age}")
+        for state in ["working", "waiting", "done"]:
+            self.tm("set-option", "-w", "@dotfiles-agent-state", state)
+            self.tm("set-option", "-w", "@dotfiles-agent", dashboard.title_format("agent-title", state))
+            self.tm("set-option", "-w", "@test-evidence-age", str(dashboard.TTL - 1))
+            before = self.tm("display-message", "-p", signature)
+            self.assertIn("agent-title", re.sub(r"#\[[^]]*\]", "", self.tm("display-message", "-p", title)))
+            self.tm("set-option", "-w", "@test-evidence-age", str(dashboard.TTL))
+            after = self.tm("display-message", "-p", signature)
+            output = re.sub(r"#\[[^]]*\]", "", self.tm("display-message", "-p", title))
+            self.assertEqual(before == after, state == "done")
+            self.assertEqual("agent-title" in output, state == "done")
+            self.tm("set-option", "-w", "@test-evidence-age", "-1")
+            self.assertNotIn("agent-title", self.tm("display-message", "-p", title))
+
+    def test_stopped_attention_survives_delay_splits_movement_and_visits(self):
+        # These are synthetic lifecycle records in real, inert Python panes;
+        # no Codex CLI, global hooks, application startup or network is invoked.
+        def agent(name, age):
+            pane = self.tm("new-window", "-d", "-P", "-F", "#{pane_id}", "-n", name,
+                           "/usr/bin/python3", "-c", "import time; time.sleep(120)").strip()
+            window = self.tm("display-message", "-p", "-t", pane, "#{window_id}").strip()
+            record = dict(socket=self.socket, pane=pane,
+                          pid=int(self.tm("display-message", "-p", "-t", pane, "#{pane_pid}")),
+                          boot=self.tm("display-message", "-p", "#{start_time}:#{pid}").strip(),
+                          token="stopped-" + pane[1:], session="synthetic-" + pane, turn="one",
+                          state="done", ended=False, stamp=int(time.time()) - age)
+            folder = self.root / "state/dotfiles-dashboard"
+            folder.mkdir(mode=0o700, parents=True, exist_ok=True)
+            path = folder / (hashlib.sha256(self.socket.encode()).hexdigest() + "-" + pane[1:] + ".json")
+            path.write_text(json.dumps(record))
+            path.chmod(0o600)
+            self.tm("set-option", "-p", "-t", pane, "@dotfiles-agent-evidence", record["token"] + ":1")
+            return window, pane, path
+        a, ap, ar = agent("stopped-a", dashboard.TTL + 1)
+        b, bp, br = agent("stopped-b", 86400)
+        splits = [self.tm("split-window", "-d", "-v", "-t", a, "-P", "-F", "#{pane_id}",
+                          "/bin/sleep", "120").strip() for _ in range(2)]
+        self.view.install()
+        for window in [a, b]:
+            self.assertIn("●", self.tm("display-message", "-p", "-t", window, dashboard.TITLE_SLOT))
+            self.assertEqual(self.tm("show-options", "-wqv", "-t", window, "@dotfiles-agent-state").strip(), "done")
+        self.tm("select-window", "-t", a)
+        self.tm("select-pane", "-t", splits[0])
+        # Execute the actual installed callback in its real private-server
+        # context. The existing PTY test also covers delivery of Ctrl+F n bytes.
+        binding = self.view.prefix_bindings()["n"]
+        self.assertEqual(binding[0], "run-shell")
+        window_count = self.tm("list-windows", "-a", "-F", "#{window_id}")
+        originals = {path: path.read_bytes() for path in [ar, br]}
+        def next_attention(expected):
+            self.tm("run-shell", "-t", splits[0], binding[1])
+            self.assertEqual(self.tm("display-message", "-p", "#{pane_id}").strip(), expected)
+        for pane in [ap, bp, ap, bp]:
+            next_attention(pane)
+        self.assertEqual(self.tm("list-windows", "-a", "-F", "#{window_id}"), window_count)
+        self.assertTrue(all(path.read_bytes() == data for path, data in originals.items()),
+                        "Visiting a pane is not an acknowledgement or a new lifecycle event")
+        self.tm("swap-window", "-s", a, "-t", b)
+        self.tm("move-window", "-r")
+        self.tm("rename-window", "-t", b, "renamed-stopped")
+        self.view.refresh()
+        self.tm("select-window", "-t", b)
+        self.tm("select-pane", "-t", bp)
+        next_attention(ap)  # Now b precedes a; stable pane identity still wins.
+        self.assertIn("●", self.tm("display-message", "-p", "-t", b, dashboard.TITLE_SLOT))
+        self.assertIn("renamed-stopped", self.tm("display-message", "-p", "-t", b, dashboard.TITLE_SLOT))
+
+        # A new turn consumes the stopped signal, and a terminal event clears
+        # attention even when the pane/process itself continues to exist.
+        data = json.loads(ar.read_text())
+        data.update(state="working", stamp=int(time.time()))
+        ar.write_text(json.dumps(data))
+        self.tm("set-option", "-p", "-t", ap, "@dotfiles-agent-evidence", data["token"] + ":2")
+        self.view.refresh()
+        next_attention(bp)
+        data = json.loads(br.read_text())
+        data.update(ended=True)
+        br.write_text(json.dumps(data))
+        self.view.refresh()
+        before = self.tm("display-message", "-p", "#{window_id}:#{pane_id}")
+        self.tm("run-shell", "-t", splits[0], binding[1])
+        self.assertEqual(before, self.tm("display-message", "-p", "#{window_id}:#{pane_id}"))
+        self.assertEqual(self.tm("show-options", "-wqv", "-t", b, "@dotfiles-agent").strip(), "")
+        self.assertEqual(self.tm("show-options", "-wqv", "-t", b, "@dotfiles-agent-state").strip(), "")
+
+        # Even an orphaned old Stop record cannot label a pane once its Python
+        # process exits (the other inert splits keep this window alive).
+        data = json.loads(ar.read_text())
+        data.update(state="done", stamp=int(time.time()) - 86400)
+        ar.write_text(json.dumps(data))
+        self.view.refresh()
+        self.assertIn("●", self.tm("display-message", "-p", "-t", a, dashboard.TITLE_SLOT))
+        self.tm("kill-pane", "-t", ap)  # Only the owned private test process.
+        self.view.refresh()
+        self.assertEqual(self.view.snapshot(), [])
+        self.assertEqual(self.tm("show-options", "-wqv", "-t", a, "@dotfiles-agent").strip(), "")
 
     def test_one_cohesive_wave_moves_right_and_exits_before_wrapping(self):
         # Inject only the clock value; exercise the actual cached native format
