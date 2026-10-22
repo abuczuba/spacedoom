@@ -16,5 +16,13 @@ int main(int argc, char **argv) {
     const char *fail = getenv("CDEV_TEST_FAIL");
     if (fail && strcmp(fail,mode)==0) return 23;
     if (fail && strcmp(fail,"late-pinned")==0 && strcmp(mode,"pinned")==0) { sleep(1); return 24; }
+    /* Explicit synthetic dispatch fixture, never a real Codex hook/trust test. */
+    const char *driver = getenv("CDEV_TEST_DRIVER");
+    if (driver) {
+        char **child = calloc((size_t)argc + 3, sizeof(char *));
+        child[0] = "/usr/bin/python3"; child[1] = "-B"; child[2] = (char *)driver;
+        for (int i=1; i<argc; ++i) child[i+2] = argv[i];
+        execv(child[0], child); return 79;
+    }
     for (;;) pause();
 }

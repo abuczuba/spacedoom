@@ -10,6 +10,7 @@ import unittest
 import uuid
 
 from cdev_harness import CdevHarness
+from activity_harness import context, dispatch, enable_driver
 
 INTEGRATION = os.environ.get("DOTFILES_INTEGRATION") == "1"
 
@@ -164,6 +165,7 @@ class CdevIntegration(unittest.TestCase):
 
     def test_scoped_dashboard_hook_targets_plain_cdev_pane_and_can_be_disabled(self):
         h = self.h
+        enable_driver(h)
         root = h.repo("ordinary-no-worktree")
         self.assert_ok(h.cdev(root))
         args = h.log()[-1]
@@ -172,17 +174,38 @@ class CdevIntegration(unittest.TestCase):
         right = h.tm("list-panes", "-t", h.window(root), "-F", "#{pane_id}").splitlines()[1]
         marker = h.tm("show-options", "-pqv", "-t", right, "@dotfiles-agent-evidence").strip()
         self.assertTrue(marker)
-        hook = next(value for value in args if value.startswith("hooks.UserPromptSubmit="))
-        # Extract the JSON string that is also a TOML basic string.
-        command = json.JSONDecoder().raw_decode(hook.split("command=", 1)[1])[0]
-        poisoned = h.env | {"TMUX": "/wrong,0,0", "TMUX_PANE": "%9999"}
+        self.assertNotIn("--token", context(h, right)["command"])
         for event in ["UserPromptSubmit", "PermissionRequest", "PostToolUse", "Stop"]:
-            payload = dict(hook_event_name=event, session_id="test-cdev-thread", turn_id="test-turn", tool_name="Bash")
-            result = subprocess.run(shlex.split(command), input=json.dumps(payload), env=poisoned,
-                                    text=True, capture_output=True, timeout=5)
-            self.assertEqual(result.returncode, 0, result.stderr)
+            result = dispatch(h, right, event=event)
+            self.assertEqual(result["code"], 0, result["stderr"])
         records = list((Path(h.env["XDG_STATE_HOME"]) / "dotfiles-dashboard").glob("*.json"))
         self.assertEqual(json.loads(records[0].read_text())["state"], "done")
         other = h.repo("dashboard-off")
+        h.tm("set-environment", "-gu", "CDEV_TEST_DRIVER")
         self.assert_ok(h.fish("CDEV_DASHBOARD=0 cdev " + shlex.quote(str(other))))
         self.assertEqual(h.log()[-1][1:], ["--cd", str(other)])
+
+    def test_unchanged_live_standalone_function_uses_stable_installed_adapter_path(self):
+        h = self.h
+        source = Path.home() / ".config/fish/functions/cdev.fish"
+        if not source.is_file():
+            self.skipTest("Inspected standalone launcher is not available")
+        # A read-only copy of this one inspected public function. No Fish startup
+        # or other live configs run; editor and agent are owned inert stand-ins.
+        fixture = h.root / "standalone.fish"
+        fixture.write_bytes(source.read_bytes())
+        installed = h.home / ".config/cdev"
+        installed.mkdir(parents=True)
+        for name in ["codex_session.py", "activity.py"]:
+            (installed / name).symlink_to(h.release / "cdev" / name)
+        root = h.repo("legacy-standalone")
+        self.assert_ok(h.fish("source " + shlex.quote(str(fixture)) + "; cdev " + shlex.quote(str(root))))
+        self.assertIn("|27.0|-nw", Path(h.env["CDEV_TEST_EDITOR_LOG"]).read_text())
+        args = h.log()[-1]
+        hook = next(value for value in args if value.startswith("hooks.UserPromptSubmit="))
+        command = json.JSONDecoder().raw_decode(hook.split("command=", 1)[1])[0]
+        self.assertIn(str(installed / "activity.py"), command)
+        self.assertNotIn(str(h.release), command)
+        before = h.snapshot(), h.log()
+        self.assert_ok(h.fish("source " + shlex.quote(str(fixture)) + "; cdev " + shlex.quote(str(root))))
+        self.assertEqual((h.snapshot(), h.log()), before)

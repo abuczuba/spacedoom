@@ -1,3 +1,8 @@
+The hook-registration repair and its remaining native trust/delivery gate are
+documented in [HOOK-REGISTRATION.md](HOOK-REGISTRATION.md). That document replaces
+the per-launch command-identity design described below. Consult STATUS.md for
+the recovered production state; this older candidate narrative is historical.
+
 # Codex activity dashboard — repository candidate
 
 Production remains the physically accepted ec518f0 tmux deployment. This

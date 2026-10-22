@@ -202,23 +202,39 @@ def launch(root, agent):
         label = 'fresh session for ' + str(root)
     print('cdev: launching ' + label, flush=True)
     observer = None
+    child_env = os.environ.copy()
+    # Never leak an enclosing launch's registration to an untracked CLI.
+    child_env.pop('CDEV_ACTIVITY_CONTEXT', None)
     if os.environ.get('CDEV_DASHBOARD', '1') != '0' and os.environ.get('TMUX') and os.environ.get('TMUX_PANE'):
         try:
             sys.dont_write_bytecode = True  # An immutable release is never an import cache.
             from activity import Launch
-            # Query the current pane's server, without consulting app-server
-            # process environments. Pin this identity in invocation-local hooks.
+            # Query this launcher only. Stable hooks receive separate runtime
+            # context and verify that the actual child/launcher are ancestors.
             socket = subprocess.check_output(['tmux', 'display-message', '-p', '#{socket_path}'], text=True, timeout=3).strip()
             state = os.environ.get('XDG_STATE_HOME') or str(Path.home() / '.local/state')
             observer = Launch(state, socket, os.environ['TMUX_PANE'])
             observer.register()
-            command += observer.config_args()
+            # Python resolves sys.path through a symlinked main script, so the
+            # imported module's __file__ may name a versioned release. The main
+            # script retains its lexical installed path; use that stable sibling.
+            hook_args = observer.config_args(adapter=Path(__file__).absolute().with_name('activity.py'))
+            child_env.update(observer.environment())
+            command += hook_args
         except (ImportError, OSError, ValueError, RuntimeError, TypeError, KeyError, subprocess.SubprocessError):
             observer = None
             print('cdev: activity tracking unavailable; Codex launch policies unchanged', file=sys.stderr)
     # No --all, approval/sandbox overrides, prompts, credential reads, or retries.
     try:
-        code = subprocess.call(command, cwd=str(root))
+        child = subprocess.Popen(command, cwd=str(root), env=child_env)
+        if observer is not None:
+            try:
+                observer.attach(child.pid)
+            except (OSError, ValueError, RuntimeError, TypeError, KeyError, subprocess.SubprocessError):
+                # Early hooks may race registration; they are skipped. Later
+                # events can bind a session, but never without child identity.
+                print('cdev: activity child identity unavailable; Codex continues', file=sys.stderr)
+        code = child.wait()
     except KeyboardInterrupt:
         return 130
     except OSError as error:

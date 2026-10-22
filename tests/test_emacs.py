@@ -14,6 +14,7 @@ from unittest.mock import patch
 
 from doom_harness import DoomHarness, REPO
 from cdev_harness import CdevHarness
+from activity_harness import context, dispatch, enable_driver
 
 SPEC = importlib.util.spec_from_file_location("doom_server", REPO / "configs/cdev/doom-server.py")
 server = importlib.util.module_from_spec(SPEC)
@@ -115,6 +116,7 @@ class DoomIntegration(unittest.TestCase):
         doom.start()
         h = CdevHarness(doom)
         self.addCleanup(h.close)
+        enable_driver(h)  # Synthetic hook payloads, actual isolated Doom clients.
         h.tm("source-file", str(h.release / "tmux/agent-dashboard.conf"))
         # Dotbar's title slot contract, without executing any installed plugin.
         title_slot = h.tm("show-options", "-gqv", "@tmux-dotbar-window-status-format").strip()
@@ -137,13 +139,10 @@ class DoomIntegration(unittest.TestCase):
         self.assertEqual(len(h.log()), 2)
         first = h.window(roots[0])
         panes = h.tm("list-panes", "-t", first, "-F", "#{pane_id}").splitlines()
-        hook = next(arg for arg in h.log()[0] if arg.startswith("hooks.UserPromptSubmit="))
-        command = json.JSONDecoder().raw_decode(hook.split("command=", 1)[1])[0]
+        context(h, panes[1])
         for event, expected in [("UserPromptSubmit", "#751b25"), ("PermissionRequest", "#a50021"), ("Stop", "●")]:
-            payload = dict(hook_event_name=event, session_id="combined-thread", turn_id="combined-turn", tool_name="Bash")
-            result = subprocess.run(shlex.split(command), env=h.env | {"TMUX_PANE": "%9999"}, input=json.dumps(payload),
-                                    text=True, capture_output=True, timeout=5)
-            self.assertEqual(result.returncode, 0, result.stderr)
+            result = dispatch(h, panes[1], event=event, session="combined-thread", turn="combined-turn")
+            self.assertEqual(result["code"], 0, result["stderr"])
             deadline = time.monotonic() + 5
             while time.monotonic() < deadline:
                 if expected in h.tm("show-options", "-wqv", "-t", first, "@dotfiles-agent"):

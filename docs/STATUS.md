@@ -1,3 +1,61 @@
+# Hook-registration repair candidate — 2026-10-22
+
+**Repository repair tested; actual Codex hook delivery remains a user-review
+gate. No live changes are authorized or performed by this milestone.** See
+[HOOK-REGISTRATION.md](HOOK-REGISTRATION.md) for evidence, the runtime protocol,
+failure behavior and the exact one-time native review procedure. It supersedes
+the older nonce-in-command bridge and rollout instructions below.
+
+- Codex 0.163.0's own hooks/list API confirms that changing only the original
+  launch nonce changes all eight definition hashes. The eight new entries are
+  SessionStart, UserPromptSubmit, PreToolUse, PermissionRequest, PostToolUse,
+  Stop, Interrupt and SessionEnd, from sessionFlags rather than the workmux file.
+- Repaired definitions contain only a fixed /usr/bin/python3 invocation of the
+  installed lexical activity.py path and event action. Distinct runtime nonces,
+  panes, sockets and state locations now produce identical native currentHash
+  values and source keys. Tests preserve all seven workmux keys/hashes. No
+  trusted_hash is written, and all new native definitions remain untrusted.
+- Private runtime JSON is passed in the child environment. The adapter verifies
+  the registered Codex child and launcher as live same-user ancestors, process
+  start identities, nonce, server boot and stable pane ID before binding the
+  documented session/turn IDs. It does not select by cwd or inherited TMUX.
+  Records/locks are 0600 under 0700 state; symlinks, unsafe permissions, stale
+  identities and unrelated process origins fail closed. Missing/failed hooks
+  leave the CLI usable and unlabelled; owned child termination clears evidence.
+- **90/90 full regressions passed in 53.806s** with
+  `python3 -B scripts/test.py --integration`. Native discovery/hash checks are
+  real Codex RPC calls; event dispatch is explicitly synthetic, through actual
+  owned process trees and private sockets. Tests cover two same-cwd agents,
+  cross-pane context rejection, window movement, stale/ended sessions, cleanup,
+  failure/lock contention, existing renderer/keys, workmux, standalone cdev
+  reuse/compiler handling, isolated Doom clients and deployment recovery.
+  `python3 -B scripts/deploy.py check` also passed. Two fixture assumptions found
+  during the first full run were corrected: wait for the finalizer's marker
+  write, and dispatch the Doom integration's synthetic events inside its agent
+  ancestry. No production workaround or renderer change was needed.
+- Actual hook-subprocess environment propagation, repeated native trust reuse,
+  real working/stopped/approval delivery and shared-app-server behavior are not
+  established by those tests. A shared server outside the registered ancestry
+  is deliberately rejected. No --no-daemon switch or other Codex behavior change
+  is introduced to hide that limitation. Real delivery after user review is
+  mandatory before a new rollout proposal or attention activation.
+
+Production remains recovered Phase 3B on
+releases/20261022T163617.469413Z-497daec6. No release was staged or modified;
+current, live files, global hooks/trust, workmux and loaded n/c compatibility
+bindings are outside this patch. Standalone emacs -nw remains live; persistent
+Doom/LaunchAgent activation is still deferred. The existing cdev backup
+20261022T191900.472358Z-230b25df remains restored. The separate commit-keyed,
+idempotent staging improvement remains a follow-up.
+
+Only the two existing cdev payloads require a future new release. New test
+fixtures and documentation are repository files. Preserve prior concurrent
+documentation/audit edits; this entry is additive and does not deploy anything.
+Next: explicit user review of the fixed native definitions in an isolated proof,
+then actual ordinary-cdev delivery verification. Do not resume Phase 4.
+
+---
+
 # Current state and next action
 
 ## Final shimmer and key compatibility refinement — 2026-10-22

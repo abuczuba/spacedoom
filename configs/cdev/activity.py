@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""Session-scoped, advisory Codex hook bridge. No transcript/prompt persistence.
+"""Stable, advisory Codex hooks with a verified per-launch runtime handoff.
 
-The hook COMMAND pins socket, pane and launch nonce rather than inheriting the
-shared Codex app-server's terminal environment. Existing global hooks still run.
+No trust writes, transcript reads, shell input or shared-server identity guesses.
 """
 from __future__ import annotations
 
@@ -15,6 +14,7 @@ import os
 from pathlib import Path
 import re
 import shlex
+import stat
 import subprocess
 import sys
 import tempfile
@@ -23,6 +23,67 @@ import uuid
 
 EVENTS = ("SessionStart", "UserPromptSubmit", "PreToolUse", "PermissionRequest",
           "PostToolUse", "Stop", "Interrupt", "SessionEnd")
+CONTEXT_ENV = "CDEV_ACTIVITY_CONTEXT"
+
+
+def process_identity(pid):
+    """Read only this process's ownership/parent/start identity, never its env."""
+    result = subprocess.run(["/bin/ps", "-p", str(pid), "-o", "uid=,ppid=,lstart=,comm="],
+                            env=os.environ.copy() | {"LC_ALL": "C"},
+                            capture_output=True, text=True, timeout=1)
+    fields = result.stdout.strip().split(None, 7)
+    if result.returncode or len(fields) != 8 or int(fields[0]) != os.getuid():
+        raise ValueError("activity process identity unavailable")
+    return {"parent": int(fields[1]), "started": " ".join(fields[2:7]),
+            "command": Path(fields[7]).name}
+
+
+def runtime_context():
+    raw = os.environ.get(CONTEXT_ENV, "")
+    if not raw:  # A bare/uninstrumented CLI is deliberately unlabelled.
+        return None
+    if len(raw) > 4096:
+        raise ValueError("oversized activity context")
+    data = json.loads(raw)
+    if (not isinstance(data, dict) or data.get("version") != 1
+            or type(data.get("pid")) is not int or data["pid"] <= 1
+            or not isinstance(data.get("started"), str)
+            or not isinstance(data.get("token"), str)
+            or not re.fullmatch(r"[0-9a-f]{32}", data["token"])
+            or not all(isinstance(data.get(k), str) for k in ("state", "socket", "pane"))):
+        raise ValueError("invalid activity context")
+    return data
+
+
+def verified_origin(context, record):
+    """Fail closed if a shared server inherited another terminal's context.
+
+Both the registered Codex child and its cdev launcher must be live ancestors
+with unchanged start identities. TMUX, cwd and payload text are never selectors.
+"""
+    if (record.get("pid") != context["pid"] or record.get("started") != context["started"]
+            or record.get("socket") != context["socket"] or record.get("pane") != context["pane"]
+            or record.get("token") != context["token"] or record.get("ended")
+            or type(record.get("child")) is not int or not record.get("child_started")):
+        return False
+    child_seen = False
+    pid = os.getppid()
+    visited = set()
+    for _ in range(32):
+        if pid <= 1 or pid in visited:
+            return False
+        visited.add(pid)
+        identity = process_identity(pid)
+        if pid == context["pid"]:
+            return child_seen and identity["started"] == context["started"]
+        if pid == record["child"]:
+            if identity["started"] != record["child_started"]:
+                return False
+            child_seen = True
+        elif identity["command"] in {"codex", "codex-cli"} and not child_seen:
+            return False  # A nested or unrelated Codex is not the registered CLI.
+        pid = identity["parent"]
+    return False
 
 
 def tmux(socket, *args):
@@ -44,13 +105,26 @@ def mark(socket, pane, token, value):
 
 def folder(state):
     path = Path(state) / "dotfiles-dashboard"
-    if not path.is_absolute() or path.is_symlink():
+    if not path.is_absolute() or any(p.is_symlink() for p in (path, *path.parents)):
         raise ValueError("invalid activity state directory")
     path.mkdir(mode=0o700, parents=True, exist_ok=True)
     info = path.stat()
     if info.st_uid != os.getuid() or info.st_mode & 0o077:
         raise ValueError("activity state directory must be private")
     return path
+
+
+def private_record(path):
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(fd) as stream:
+        info = os.fstat(stream.fileno())
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
+                or info.st_mode & 0o077 or info.st_nlink != 1 or info.st_size > 65536):
+            raise ValueError("untrusted activity record")
+        value = json.load(stream)
+    if not isinstance(value, dict):
+        raise ValueError("activity record must be an object")
+    return value
 
 
 def record_path(state, socket, pane):
@@ -64,6 +138,10 @@ def lock(state, socket):
     path = folder(state) / (hashlib.sha256(socket.encode()).hexdigest() + ".lock")
     fd = os.open(path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
     with os.fdopen(fd, "a") as stream:
+        info = os.fstat(stream.fileno())
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
+                or info.st_mode & 0o077 or info.st_nlink != 1):
+            raise ValueError("untrusted activity lock")
         deadline = time.monotonic() + 1
         while True:
             try:
@@ -147,28 +225,45 @@ class Launch:
         # A cdev launcher is the pane's root process, not an arbitrary descendant.
         if int(pid) != os.getpid():
             raise ValueError("activity launcher does not own this pane")
+        self.started = process_identity(int(pid))["started"]
         with lock(self.state, self.socket):
             save(self.path, dict(socket=self.socket, pane=self.pane, boot=boot,
-                                 pid=int(pid), token=self.token, session=None, turn=None,
+                                 pid=int(pid), started=self.started, token=self.token, session=None, turn=None,
                                  state="idle", stamp=int(time.time()), sequence=0, ended=False))
         tmux(self.socket, "set-option", "-p", "-t", self.pane, "@dotfiles-agent-evidence", self.token + ":0")
 
-    def config_args(self):
-        command = shlex.join([sys.executable, "-B", str(Path(__file__).resolve()), "event",
-                              "--state", self.state, "--socket", self.socket,
-                              "--pane", self.pane, "--token", self.token])
+    def config_args(self, adapter=None):
+        # Keep the installed lexical path: resolving a managed symlink would
+        # embed the release ID. Ordinary launches must have identical hashes.
+        # cdev already requires macOS's /usr/bin/python3. Its sys.executable may
+        # expose a versioned CommandLineTools path; keep that out of the hash.
+        command = shlex.join(["/usr/bin/python3", "-B", str(Path(adapter or __file__).absolute()), "event"])
         # TOML inline tables, passed as argv data. Codex merges hooks from
         # separate layers. No trust/approval/sandbox/notification override.
         value = '[{hooks=[{type="command",command=' + json.dumps(command) + ',timeout=2}]}]'
         return [item for event in EVENTS for item in ["-c", "hooks." + event + "=" + value]]
 
+    def environment(self):
+        context = dict(version=1, state=self.state, socket=self.socket, pane=self.pane,
+                       token=self.token, pid=os.getpid(), started=self.started)
+        return {CONTEXT_ENV: json.dumps(context, separators=(",", ":"))}
+
+    def attach(self, child):
+        identity = process_identity(child)
+        if identity["parent"] != os.getpid():
+            raise ValueError("activity child is not owned by this launcher")
+        with lock(self.state, self.socket):
+            data = private_record(self.path)
+            if data.get("token") != self.token or data.get("ended"):
+                raise ValueError("activity launch was superseded")
+            data.update(child=child, child_started=identity["started"])
+            save(self.path, data)
+
     def finish(self):
         with lock(self.state, self.socket):
             if self.path.is_symlink():
                 return
-            data = json.loads(self.path.read_text())
-            if not isinstance(data, dict):
-                return
+            data = private_record(self.path)
             if data.get("token") != self.token:
                 return
             data.update(ended=True, state="idle", stamp=int(time.time()), sequence=data["sequence"] + 1)
@@ -176,15 +271,18 @@ class Launch:
         mark(self.socket, self.pane, self.token, "")
 
 
-def event(state, socket, pane, token, payload):
+def event(context, payload):
+    state, socket, pane, token = (context[k] for k in ("state", "socket", "pane", "token"))
     path = record_path(state, socket, pane)
     with lock(state, socket):
         if path.is_symlink():
             return
-        record = json.loads(path.read_text())
-        if not isinstance(record, dict) or not isinstance(payload, dict):
+        record = private_record(path)
+        if not isinstance(payload, dict) or not verified_origin(context, record):
             return
-        if record.get("token") != token:
+        identity = tmux(socket, "display-message", "-p", "-t", pane,
+                        "#{start_time}:#{pid}|#{pane_pid}")
+        if identity != record.get("boot", "") + "|" + str(record.get("pid")):
             return
         result = transition(record, payload, int(time.time()))
         if result is None:
@@ -202,17 +300,16 @@ def event(state, socket, pane, token, payload):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=["event"])
-    parser.add_argument("--state", required=True)
-    parser.add_argument("--socket", required=True)
-    parser.add_argument("--pane", required=True)
-    parser.add_argument("--token", required=True)
-    args = parser.parse_args()
+    parser.parse_args()
     try:
+        context = runtime_context()
+        if context is None:
+            return 0
         data = sys.stdin.buffer.read(1024 * 1024 + 1)
         if len(data) <= 1024 * 1024:
             payload = json.loads(data)
             if isinstance(payload, dict):
-                event(args.state, args.socket, args.pane, args.token, payload)
+                event(context, payload)
     except (OSError, ValueError, RuntimeError, TypeError, KeyError, subprocess.TimeoutExpired):
         # Advisory observer only: a dashboard failure must never control Codex.
         print("cdev activity evidence unavailable; continuing without a status update", file=sys.stderr)
