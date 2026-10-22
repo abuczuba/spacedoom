@@ -213,7 +213,10 @@ terminates application processes.
 | Initial migration with the old popup binding | New text may be read immediately; old styling remains until reload |
 | Ghostty appearance/keybinds | Explicit reload applies supported settings; symlink watcher behavior remains unverified |
 | Ghostty command/initial-command | New terminal surfaces / first startup surface; existing jobs are not replaced |
-| Fish/Doom/AeroSpace | Unmanaged; audit startup, autoload and reload behavior before any future adoption |
+| Fish cdev functions | Candidate only; new shells/autoloads can read changes immediately; loaded definitions need explicit source/new shell |
+| Doom integration | Candidate only; loaded after normal startup of a new named server, never injected into existing editors |
+| LaunchAgent | File installation/bootstrap/kickstart/shutdown require separate approval; a loaded job retains its pinned definition |
+| Other Fish/Doom/AeroSpace | Unmanaged and outside this milestone |
 
 Installed Ghostty 1.3.1 action docs describe explicit reload and warn that not all
 settings are reloadable. They provide no automatic config watcher contract.
@@ -241,3 +244,35 @@ Cmd+1–9 while preserving the user's working panes.
   of drive caches.
 - Keep all working releases and original-file backups. Recovery must remain
   possible from [Terminal.app](RECOVERY.md), with no Ghostty/tmux/Doom/Codex.
+
+
+## Activity and persistent-Doom milestone
+
+The accepted production tmux release remains ec518f0. New dashboard, cdev/client
+and LaunchAgent files are development candidates. Follow the exact
+[milestone deployment order](MILESTONE-DEPLOYMENT.md), not an implicit extension
+of the earlier five-file migration approval. Stage/activate/reload, migration of
+two Fish functions, the companion Ghostty file/reload, installation of one
+LaunchAgent and bootstrap are distinct
+approval boundaries. Includes/helpers pin a complete release, so their optional
+live mappings do not need adoption. Never migrate whole configuration trees.
+
+New validators read Python AST, run Fish --no-config -n, read/check-parens Elisp
+in Emacs -Q --batch without evaluation, and parse plist structure. No validation
+starts a production daemon or loads private Doom startup. Templates additionally
+render @HOME@ for logs; releases remain home/path specific.
+
+Disposable Doom tests use an audited module snapshot, sanitized public terminal
+preferences (including existing fonts/focus hook), generated-startup copies and
+read-only installed libraries. A startup fingerprint refuses changed generated
+code before loading it. Inspect paths/modules before updating that fingerprint;
+never blindly bless new hashes to make a test green. No private Org/custom,
+identity, clipboard content or captured environment dump belongs in the fixture.
+
+Dashboard and editor reversal are independent: dashboard disable and
+CDEV_DASHBOARD=0 leave Doom/conversations running; CDEV_EDITOR_MODE=standalone
+leaves the dashboard and server buffers intact. These proposed live operations
+still require their own approval. Once Fish/service mappings are migrated,
+restore their backups before pointer rollback to ec518f0: that release lacks
+those files. The multi-component refusal and recovery order are regression-tested.
+The deployment/restore tool never controls application processes automatically.

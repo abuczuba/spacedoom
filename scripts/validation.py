@@ -2,6 +2,10 @@
 from __future__ import annotations
 
 import os
+import ast
+import json
+import plistlib
+from xml.parsers.expat import ExpatError
 from pathlib import Path
 import re
 import subprocess
@@ -40,7 +44,8 @@ def private_tmux():
             return run(["tmux", "-S", socket, *args], env=env)
 
         tmux("-f", "/dev/null", "new-session", "-d", "-s", "dotfiles-test",
-             "-n", "one", "/bin/sleep 120")
+             "-n", "one", "/bin/sleep", "120")
+        tmux("set-option", "-g", "default-shell", "/bin/sh")
         try:
             yield tmux
         finally:
@@ -63,6 +68,33 @@ def syntax_checks(directory: Path, manifest: dict) -> list[str]:
         if kind == "sh":
             run(["/bin/sh", "-n", str(path)])
             results.append(f"sh syntax: {item['path']}")
+        elif kind == "python":
+            try:
+                ast.parse(path.read_text(), filename=str(path))
+            except SyntaxError as exc:
+                raise ValidationError(f"Python syntax: {item['path']}") from exc
+            results.append(f"Python syntax: {item['path']}")
+        elif kind == "fish":
+            with tempfile.TemporaryDirectory(prefix="dotfiles-fish-parse-") as folder:
+                env = os.environ.copy() | {"HOME": folder, "XDG_CONFIG_HOME": folder}
+                run(["fish", "--no-config", "-n", str(path)], env=env)
+            results.append(f"Fish syntax: {item['path']}")
+        elif kind == "elisp":
+            with tempfile.TemporaryDirectory(prefix="dotfiles-elisp-parse-") as folder:
+                env = os.environ.copy() | {"HOME": folder, "XDG_CONFIG_HOME": folder}
+                expression = ("(with-temp-buffer (insert-file-contents " + json.dumps(str(path))
+                              + ") (check-parens) (goto-char (point-min)) "
+                              "(condition-case nil (while t (read (current-buffer))) (end-of-file nil)))")
+                run(["emacs", "-Q", "--batch", "--eval", expression], env=env)
+            results.append(f"Elisp read only: {item['path']}")
+        elif kind == "plist":
+            try:
+                value = plistlib.loads(path.read_bytes())
+                if not isinstance(value, dict) or not isinstance(value.get("ProgramArguments"), list):
+                    raise ValueError("LaunchAgent requires ProgramArguments")
+            except (ValueError, plistlib.InvalidFileException, ExpatError) as exc:
+                raise ValidationError(f"LaunchAgent syntax: {item['path']}") from exc
+            results.append(f"LaunchAgent syntax only: {item['path']}")
         elif kind == "tmux":
             tmux_files.append(path)
         elif kind == "ghostty":

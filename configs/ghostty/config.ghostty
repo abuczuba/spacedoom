@@ -69,7 +69,7 @@ keybind = super+digit_9=text:\x06\x39
 
 keybind = super+shift+v=text:\x06v
 keybind = super+shift+s=text:\x06s
-keybind = super+shift+n=text:\x06n
+keybind = super+shift+n=text:\x06\x63
 keybind = super+shift+z=text:\x06z
 keybind = super+shift+a=text:\x06w
 keybind = super+shift+x=text:\x06x

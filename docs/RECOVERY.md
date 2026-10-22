@@ -152,3 +152,33 @@ Restoring files or the pointer cannot change already loaded tmux bindings. Keep
 using this independent Terminal shell. A tmux/Ghostty reload is a separate
 approval and verification step; no restart, kill-server, Doom shutdown or Codex
 termination is part of recovery.
+
+
+## Activity dashboard and named Doom server
+
+The new milestone is repository-only. No new service/Fish/Ghostty backup IDs exist.
+Use the exact [milestone recovery sequence](MILESTONE-DEPLOYMENT.md) after any
+future approved migration. Do not substitute the original tmux backup for a
+feature rollback. Restore newly adopted Fish/service paths before rolling the
+shared pointer back to a release that lacks those mappings; the tool refuses
+otherwise. Files and pointer changes never imply a reload or a process restart.
+Disable the dashboard before restoring the Ghostty companion. Restore/reload
+the original Ghostty forwarding and confirm its n route before restoring c's
+former default; follow the staged bridge in the milestone plan.
+
+Terminal.app with /bin/zsh -f remains sufficient to run the deployment tool,
+inspect the named service log and restore files. The service's manual foreground
+fallback, after its own approval, is:
+
+```sh
+/usr/bin/python3 -B /ABSOLUTE/RELEASE/cdev/doom-server.py serve
+```
+
+Use only the named socket. Never use the old Fish daemon toggle, default-server
+kill-emacs, pkill or a process-name search as authority to terminate editors.
+Explicit dashboard disable leaves buffers/conversations alive. Editor launch
+fallback does not stop the persistent daemon. Save buffers/close its clients and
+approve shutdown separately before unloading a healthy service. Unresponsive or
+unexpected socket/manager state requires preserved logs and reviewed exact-job
+recovery, not automatic deletion or restarting. Keep all referenced releases:
+existing processes may retain pinned helper/hook paths after a pointer rollback.

@@ -90,6 +90,38 @@ class DeploymentTests(unittest.TestCase):
         self.assertIsNone(self.deployment.current())
         self.deployment.receipt(release)
 
+    def test_new_fish_and_service_paths_restore_before_older_pointer_rollback(self):
+        old, tmux_backup = self.first()
+        for name, target, component in [("cdev", ".config/fish/functions/cdev.fish", "fish-cdev"),
+                                         ("service", "Library/LaunchAgents/local.dotfiles.doom.plist", "doom-service")]:
+            source = self.repo / "configs" / name
+            source.write_text("new " + name + " @HOME@ @RELEASE@\n")
+            source.chmod(0o644)
+            self.manifest["files"].append(dict(source="configs/" + name, path=component + "/" + name,
+                                                target=target, component=component, syntax="text"))
+        self.write_manifest()
+        function = self.home / ".config/fish/functions/cdev.fish"
+        function.parent.mkdir(parents=True)
+        function.write_text("original fish function\n")
+        function.chmod(0o600)
+        new = self.mutate("stage")
+        self.mutate("activate", new, old)
+        fish_backup = self.mutate("migrate", new, "fish-cdev")
+        service_backup = self.mutate("migrate", new, "doom-service")
+        self.assertIn(str(self.home), function.read_text())
+        with self.assertRaises(DeployError):
+            self.mutate("rollback", new)
+        self.assertEqual(self.deployment.current(), new)
+        self.mutate("restore", service_backup)
+        self.mutate("restore", fish_backup)
+        self.assertEqual(function.read_text(), "original fish function\n")
+        self.assertEqual(function.stat().st_mode & 0o777, 0o600)
+        self.assertFalse(os.path.lexists(self.home / "Library/LaunchAgents/local.dotfiles.doom.plist"))
+        self.assertEqual(self.deployment.current(), new)
+        self.mutate("rollback", new)
+        self.assertEqual(self.deployment.current(), old)
+        self.deployment.receipt(old)
+
     def test_plan_and_check_never_initialize_deployment(self):
         plan = self.deployment.plan()
         self.assertIsNone(plan["current"])

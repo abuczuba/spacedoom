@@ -141,3 +141,38 @@ recreate or restart working sessions to perform these checks.
 An approved rollback followed by an independently approved reload must be
 accepted separately. Preserve all old releases while any running server may
 still reference their helpers.
+
+
+## 2026-10-22 activity / persistent-Doom milestone
+
+Baseline complete suite: 47 tests passed before edits. Final complete suite:
+79 tests passed in 43.647s with python3 -B scripts/test.py --integration. New
+workstreams have separate test_activity/test_dashboard and test_emacs suites,
+with cdev and combined real-client/private-tmux integration coverage. No
+remaining automated failures. Malformed plist testing exposed an ExpatError
+normalization gap; it is repaired and included in the full green run.
+The added Ghostty-forwarding regression compares every other key mapping with
+ec518f0, checks legacy n creation before companion adoption and verifies that
+background monitoring cannot enable attention navigation. Observer contention
+returns within a bounded interval rather than blocking Codex on a stale lock.
+
+Doom tests use read-only installed libraries, audited generated startup copies,
+a sanitized tracked module/config fixture, private HOME/caches/sockets and owned
+clients. The real Source Code Pro preferences and frame-focus hook do not block
+these terminal daemon/client tests. Private Org/custom/clipboard content is
+excluded. Do not refresh fixture hashes without auditing changed generated code.
+The original 47 tests remain part of the full suite.
+
+Final deploy.py check passed all 14 checks/dependencies. Its initial sandboxed
+attempt could not create the private parser socket; the approved isolated retry
+passed. Final read-only production comparisons preserve all inspected file
+bytes/modes/link metadata, the complete deployment tree and all server/session/
+window/pane identities, root PIDs, bindings and hooks. Display-only preflight
+passes; strict attention preflight correctly refuses the old Ghostty mapping.
+No new service, named runtime directory or production dashboard state exists.
+
+Measurements and exact interpretation are in ACTIVITY.md. Production remains
+ec518f0: this milestone performs no staging, activation, live symlink/config
+changes, application reload, service startup or global hook edits. Real Codex
+hook delivery/trust, live visual/keyboard acceptance, private Doom customization
+and launchd login/recovery behavior remain separate checks after approval.

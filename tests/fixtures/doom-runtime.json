@@ -1,0 +1,16 @@
+{
+  "emacs_version": "31.1",
+  "doom_version": "2.2.4",
+  "files": {
+    "early-init.el": "b9a8bf34a88818741392c5fa093ab63233b0bd98b4cbcd8609ee2dfe631d7c44",
+    ".local/etc/@/init.31.1.el": "1317bd75acf3d16ba013d6ac99fe537f5c19ece42b6791ec18339126096c5fb7",
+    ".local/etc/@/init.d/05-doom.init.el": "98a498285737c2d9167bd1acbbe9950cb5e9187b695441616129acc942946791",
+    ".local/etc/@/init.d/10-doom-cli-loaddefs.load.el": "e4765a103bc8766511b45ba3f031d5f1ad0227a9411057dc9d668115ee0a5d27",
+    ".local/etc/@/init.d/10-doom-loaddefs.init.el": "f282883341c9ff7c44670152a1c38e3c4f6d1468478c5d3f5c0d518355df72d8",
+    ".local/etc/@/init.d/20-user.init.el": "c19a540efa631ad80ae650fd43341124cb3965c522d634a7759c9383922af733",
+    ".local/etc/@/init.d/30-doom-package-envs.init.el": "7e410419e7917e1ee947f6c2bc5bc00c52f58f47b9d59778fc307dafca3682dd",
+    ".local/etc/@/init.d/60-doom-module-loaddefs.init.el": "0abbbe945490c9e9ff0f9da21a2317177e2d1d5804b6dafd8ff629e2c3114290",
+    ".local/etc/@/init.d/70-doom-package-loaddefs.init.el": "2a086d4e9d5c684a424bd47320c0daecde04f2f60182334a90f9bc31d4b10057",
+    ".local/etc/@/init.d/80-doom-modules.init.el": "ee225ecc9dea9a8cc0024a999060e6a0a292f94ffd74d93818c617ea3f80c252"
+  }
+}

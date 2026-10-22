@@ -121,7 +121,7 @@ def manifest_check(value: dict) -> dict:
         raise DeployError("release.json is reserved for the release receipt")
     for item in value["files"]:
         identifier(item["component"])
-        if item["syntax"] not in {"tmux", "ghostty", "sh", "text"}:
+        if item["syntax"] not in {"tmux", "ghostty", "sh", "text", "python", "fish", "elisp", "plist"}:
             raise DeployError("Unknown syntax type")
         if any(ref not in paths for ref in item.get("references", [])):
             raise DeployError("Reference is missing from the complete release")
@@ -228,7 +228,7 @@ class Deployment:
             path = directory / relative(item["path"])
             no_links(path, directory)
             data = path.read_text()
-            if "@RELEASE@" in data:
+            if "@RELEASE@" in data or "@HOME@" in data:
                 raise DeployError("Unrendered release reference")
             for ref in item.get("references", []):
                 if not (directory / ref).is_file():
@@ -252,7 +252,7 @@ class Deployment:
             no_links(source, self.repo)
             if not source.is_file() or stat.S_IMODE(source.stat().st_mode) not in {0o644, 0o755}:
                 raise DeployError(f"Expected a regular 644/755 source: {item['source']}")
-            data = source.read_text().replace("@RELEASE@", str(final)).encode()
+            data = source.read_text().replace("@RELEASE@", str(final)).replace("@HOME@", str(self.home)).encode()
             target = directory / relative(item["path"])
             target.parent.mkdir(parents=True, exist_ok=True)
             with target.open("xb") as handle:

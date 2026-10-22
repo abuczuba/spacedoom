@@ -77,3 +77,40 @@ separately authorized activation and acceptance.
 
 No application repository, credential store, unrelated directory, Fish/Doom
 configuration deployment or macOS setting is part of this milestone.
+
+
+## 2026-10-22 milestone discovery and sanitized imports
+
+New relevant live sources inspected: ~/.config/fish/functions/cdev.fish,
+cdev-pin.fish; ~/.config/cdev/codex_session.py; ~/.config/doom/{init.el,config.el,
+packages.el}; selected Emacs/Doom/workspaces/persp/Ivy/Projectile source;
+~/.codex/hooks.json and only hook/feature settings from Codex config; workmux
+configuration/cache identity metadata. No authentication, private Org/custom
+content, unrelated projects or conversation bodies were read.
+
+Development imports: the two Fish functions and cdev Python helper; a sanitized
+module-selection snapshot at tests/fixtures/doom-init.el, and selected public
+terminal preferences at doom-config.el. The latter contains theme, fonts, line
+numbers and the inspected frame-focus hook, with no identity/Org/clipboard data.
+New Doom integration is an additive cdev.el, not a replacement user config.
+Generated-startup hashes in doom-runtime.json guard the disposable test fixture;
+no generated runtime or captured environment dump is committed.
+
+Installed versions observed: Codex 0.163.0, workmux 0.1.276, Fish 4.9.3,
+Emacs/emacsclient 31.1, Doom generated profile 2.2.4, tmux 3.8. Emacs commands
+resolve through Homebrew links into Emacs.app. Three active standalone Emacs
+processes were tmux children; current cdev pane processes were Python wrappers.
+No current pane had usable workmux status; one cache record belonged to an old
+server/pane. This is not proof of a shared-daemon routing root cause.
+
+The existing production n creates a window, c is standard new-window, Tab calls
+workmux last-agent; there are no local window title overrides. The current
+candidate uses n/c/Shift+N as documented in ACTIVITY.md and checks live conflicts
+before installation. Global workmux hooks/settings and Ghostty remain unchanged.
+
+The candidate Ghostty config has exactly one required forwarding change:
+Cmd+Shift+N sends Ctrl+F c (explicit hex 06/63) instead of Ctrl+F n. This preserves
+new-window semantics when n becomes attention. Live Ghostty remains unchanged.
+Legacy/display-only installation keeps n as new-window until companion adoption
+and verified reload. All other Ghostty forwards are compared with ec518f0 in the
+regression suite. This extra activation dependency must not be silently omitted.

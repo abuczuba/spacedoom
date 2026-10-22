@@ -1,8 +1,9 @@
 # Personal macOS dotfiles
 
 The Git source of truth is `~/dev/dotfiles`. Work here does not change the
-running workstation. Ghostty and tmux have inspected development copies; **no
-release or live migration has been performed**. See [status](docs/STATUS.md).
+running workstation. The ec518f0 tmux deployment passed user-reported physical
+acceptance. The activity dashboard and persistent Doom clients are **repository
+candidates only**. See [status](docs/STATUS.md).
 
 ## Three layers
 
@@ -21,14 +22,16 @@ release or live migration has been performed**. See [status](docs/STATUS.md).
 ```
 
 Live configuration must never link into the checkout. Git branches, uncommitted
-edits and commits cannot deploy or reload anything. Fish, Doom, workmux and
-AeroSpace remain separately managed; this repository only references their
-inspected shortcuts.
+edits and commits cannot deploy or reload anything. New cdev Fish/Doom/service
+files have exact optional manifest mappings, but none is migrated. Global Codex
+hooks, workmux settings, unrelated Fish/Doom configuration and AeroSpace remain
+separately managed and unchanged.
 
 ## Development
 
 Requirements: Python 3.9+ standard library. Integration validation uses the
-installed Ghostty 1.3.1, tmux 3.8+, system less 668+, sh and awk. No Stow or package
+installed Ghostty 1.3.1, tmux 3.8+, Fish, Emacs/emacsclient 31.1 with the existing
+Doom installation, workmux 0.1.276, system less 668+, sh and awk. No Stow or package
 installation is required.
 
 Run from this checkout; these commands work in Fish, Zsh and POSIX sh:
@@ -43,7 +46,11 @@ python3 scripts/deploy.py plan
 Unit tests use temporary homes. Integration tests create private tmux sockets
 with empty startup configs and inert panes, parse copied settings without user
 plugins, and exercise the pager through a pseudo-terminal. They do not connect
-to the live tmux server. Codex's macOS sandbox may require narrow approval for
+to the live tmux server. Doom tests use sanitized homes, copied/rebased startup
+files, read-only installed libraries and unique owned sockets/terminal clients;
+they exclude private Org/custom configuration. Codex tests use synthetic payloads,
+local config parsing and inert stand-ins, not active conversations.
+Codex's macOS sandbox may require narrow approval for
 private test sockets. `check` additionally verifies actual external dependencies
 and unmanaged override files; it does not create deployment state.
 
@@ -61,8 +68,15 @@ tmux server.
   do not wrap. Default `L` and `<`/`>` bindings are preserved.
 - Complete copied releases, hash/reference/dependency checks, backup-first
   migration, explicit activation, rollback, and restoration of original files.
+- An event-cached activity title overlay and Ctrl+F n attention cycling; window
+  creation moves to c and ordinary next-window to Shift+N. Idle theme unchanged.
+  The one-line candidate Ghostty Cmd+Shift+N remap to c preserves creation;
+  attention stays gated in legacy mode until that companion is adopted/reloaded.
+- One explicitly managed named Doom daemon, terminal client frames with native
+  workspaces and stable project-root SPC f f, plus explicit standalone fallback.
 
-These are repository changes, not a report of loaded workstation behavior.
+The original popup/reordering changes are accepted in production. New dashboard,
+Fish/Doom and LaunchAgent changes require separate staging/activation approvals.
 
 ## Navigation
 
@@ -72,6 +86,9 @@ These are repository changes, not a report of loaded workstation behavior.
 - [Validation](docs/VALIDATION.md): evidence, manual acceptance and limits
 - [Inventory](docs/INVENTORY.md): inspected sources, target mapping and provenance
 - [Decisions](docs/DECISIONS.md): copied releases rather than development symlinks/Stow
+- [Activity evidence/design](docs/ACTIVITY.md) and [offline preview](docs/previews/dashboard.html)
+- [Persistent Doom architecture](docs/DOOM-SERVER.md)
+- [Proposed milestone deployment/rollback](docs/MILESTONE-DEPLOYMENT.md)
 - [Historical handoff](docs/ENVIRONMENT.md): October 20–21 context, not a live inventory
 
 ## Local commits

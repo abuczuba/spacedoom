@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Codex window dashboard — candidate preview</title>
+<style>
+  :root { color-scheme:dark; font:16px/1.6 ui-monospace,Menlo,monospace; background:#0b0d0f; color:#e3e6e8 }
+  body { max-width:960px; margin:6vh auto; padding:24px }
+  h1 { font-size:20px; font-weight:500; letter-spacing:2px }
+  p { color:#aeb4ba; max-width:76ch }
+  .plate { padding:24px; margin:24px 0; border:1px solid #393f44; background:#171a1d }
+  .bar { padding:12px 16px; background:#1f1d2e; color:#e0def4; overflow:auto; white-space:nowrap }
+  .sep { color:#737a80; padding:0 12px }
+  .working { background:#171a1d; color:#b8bec4 }
+  .silver { color:#e3e6e8; background:#741527 }
+  .waiting { background:#a50021; color:#fff; font-weight:bold; padding:0 4px }
+  .done { color:#fff }
+  label,button,input { font:inherit }
+  input { background:#0b0d0f; color:#e3e6e8; border:1px solid #555c63; padding:6px 10px; width:260px }
+  button { background:#30363b; color:#fff; border:1px solid #737a80; padding:6px 16px; cursor:pointer }
+  dt { color:#fff; margin-top:16px } dd { margin-left:0; color:#aeb4ba }
+</style>
+<h1>AGENT ACTIVITY / WINDOW STRIP</h1>
+<p>Offline design preview. The deployed tmux theme remains intact; only an agent's title receives an overlay. This page uses synthetic evidence and cannot verify live hooks or physical keys.</p>
+<div class="plate">
+  <label>Working title <input id="title" value="forge-project"></label>
+  <button id="pause">Pause</button>
+  <div class="bar" style="margin-top:24px"><span id="working" class="working"></span><span class="sep">•</span><span class="done">●</span> review-project<span class="sep">•</span><span class="waiting">!</span> approval-project<span class="sep">•</span> ordinary-shell</div>
+</div>
+<dl>
+  <dt>WORKING / crimson + cold silver</dt><dd>One title character advances each second. No gradient, pulsing background, polling process or competing status formatter.</dd>
+  <dt>STOP REPORTED / white ●</dt><dd>A turn stopped and may need review or a reply. It does not certify that the task succeeded.</dd>
+  <dt>PERMISSION REQUEST / white ! on blood red</dt><dd>An observed approval request. General conversational questions do not have a distinct reliable hook.</dd>
+  <dt>IDLE / original theme</dt><dd>No reliable active evidence, interrupted/terminated agent, expired data, or ordinary window.</dd>
+</dl>
+<p>Ctrl+F → n cycles attention panes in the current session. Ctrl+F → c creates a window; Shift+N selects the next window. Empty attention queues leave focus unchanged. This shows full mode after the companion Ghostty remap; legacy mode keeps n as new-window.</p>
+<script>
+  const input = document.getElementById('title'), target = document.getElementById('working');
+  let step=0, paused=false;
+  function draw() {
+    const chars=Array.from(input.value || 'forge-project');
+    target.replaceChildren(...chars.map((char,index)=>{
+      const span=document.createElement('span'); span.textContent=char;
+      if(index===step%chars.length) span.className='silver'; return span;
+    }));
+  }
+  input.addEventListener('input',draw);
+  document.getElementById('pause').onclick=function(){paused=!paused; this.textContent=paused?'Resume':'Pause';};
+  setInterval(()=>{if(!paused){step++;draw();}},1000); draw();
+</script>
+</html>

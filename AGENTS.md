@@ -6,9 +6,12 @@ Maintain a reproducible, minimal, keyboard-centric macOS environment. The
 canonical development source is `~/dev/dotfiles`. Repository edits and commits
 have **no authority to change the running workstation**.
 
-Current configuration scope: Ghostty and tmux. Inspect Fish, Doom, workmux and
-AeroSpace only as needed to reconcile interactions and the shortcuts reference.
-Do not change their configuration without a separately approved task. Application
+Current development scope: Ghostty/tmux, the cdev Fish functions, an advisory
+Codex activity observer, and a named persistent Doom server/client integration.
+Production tmux has passed user-reported physical acceptance. New milestone
+features remain repository candidates until individually approved activation.
+Never alter global Codex hooks, workmux settings or authentication. AeroSpace
+and unrelated Fish/Doom configuration still require a separate task. Application
 repositories, including Tailscale, private-ai-ops-lab, JobApply and pluckd, are out
 of scope. Do not spawn agents or workmux worktrees without an approved use case.
 
@@ -38,6 +41,11 @@ Allowed without additional approval within the authorized project scope:
 - Create isolated temporary test fixtures and private tmux test servers. Always
   use an explicit private socket, an empty startup config and inert test panes;
   never use the live/default server. Clean up only resources created by the test.
+- Start disposable Doom daemons with unique private sockets and sanitized homes,
+  and connect owned test clients. Installed libraries are read-only dependencies;
+  do not load private Org/custom configuration or captured environment dumps.
+  Close/terminate only resources the test itself created. Never infer ownership
+  from a process name or kill a discovered existing Emacs/Codex process.
 - Make appropriately scoped local commits after reviewing the staged changes,
   running `python3 scripts/preflight.py` and `git diff --cached --check`.
 
@@ -48,6 +56,10 @@ Explicit, operation-specific user approval is required for:
   outside the repository; activating a release, rolling back or restoring files.
 - Reloading/restarting applications, terminating processes, or modifying live
   tmux sessions, panes or windows.
+- Installing, bootstrapping, kickstarting or unloading a persistent LaunchAgent;
+  starting a production Doom daemon; trusting new Codex hooks. Invocation-local
+  advisory hook definitions must preserve all approval/sandbox/notification
+  settings and must never bypass hook trust or actual sandbox enforcement.
 - Installing/removing packages; changing macOS settings, login items, permissions
   or services; destructive operations; work outside this project's scope.
 - Changing Git remotes/configuration, pushing or publishing.
@@ -68,7 +80,7 @@ supplement actual Codex sandbox/approval enforcement; do not weaken or bypass it
   shortcuts, no-wrap pane navigation, theme and existing processes unless a
   specific approved change says otherwise.
 - No `sudo`, `curl | sh`, broad package upgrades, `rm -rf`, `git reset --hard`,
-  `git clean -fd`, default-server `kill-server`, new daemons, broad home access or
+  `git clean -fd`, default-server `kill-server`, unapproved persistent daemons, broad home access or
   full-access sandbox shortcuts. A blocked live read remains unverified; do not
   request broad access to retry it. Narrow sandbox escalation for an isolated
   test must name the test and its private resources.
@@ -84,6 +96,10 @@ any release, backup, migration, activation or reload operation.
    inspection, isolated tests and live acceptance; do not describe plans as tests.
 2. Make minimal repository changes; validate applicable syntax, dependencies,
    references and behavior without executing user plugin/startup code in tests.
+   The approved Doom integration fixture may load installed Doom libraries with
+   rebased startup COPIES and a sanitized private configuration. Test dashboard
+   and editor reversibility independently, then their interaction. Baseline
+   existing configuration before edits; never test on production main panes.
 3. Review/stage the intended files, run preflight and staged whitespace checks,
    inspect the staged diff, then make the authorized local commit. Never bypass a
    failed hook or silently disable signing.

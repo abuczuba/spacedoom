@@ -52,11 +52,15 @@ SHORTCUTS / TERMINAL + EDITOR
   Ctrl+F -> Alt+3 / 4 / 5    | Main horizontal / vertical / tiled
 
   WINDOWS
-  Ctrl+F -> n                | New window in pane's directory
+  Ctrl+F -> n                | Agent attention; legacy: new window
+  Ctrl+F -> c                | New window in pane's directory
   Ctrl+F -> 1 .. 9           | Select window by current number
   Ctrl+F -> Alt+h/l          | Swap with previous/next window
   Ctrl+F -> p                | Select previous window
-  Ctrl+F -> :                | Command prompt; next-window goes forward
+  Ctrl+F -> Shift+N          | Select next window (ordinary navigation)
+  Ctrl+F -> :                | Command prompt
+  Attention needs the companion Ghostty Cmd+Shift+N -> c mapping.
+  Until that mapping is adopted/reloaded, n keeps creating windows.
   Ctrl+F -> ,                | Rename window
   Ctrl+F -> f                | Find a window
   Ctrl+F -> w or Ctrl+W      | workmux dashboard popup
@@ -154,6 +158,7 @@ SHORTCUTS / TERMINAL + EDITOR
   SPC : or Alt+X             | Run command by name
   Ctrl+G                     | Cancel a prompt or command
   SPC f f / SPC f s          | Find file / save
+  SPC f F                    | Find file from buffer's directory
   SPC f r / SPC f p          | Recent file / Doom config file
   SPC f o                    | Configured new Org file command
   SPC b b / SPC b B          | Workspace buffer / any buffer
@@ -176,19 +181,32 @@ SHORTCUTS / TERMINAL + EDITOR
   Ctrl+C Ctrl+O              | Open link
   Opt+Enter / Opt+arrows     | Heading/item actions; context dependent
 
-  :q may exit Emacs when its last window closes.
-  Ctrl+X Ctrl+C exits Emacs. Emacs windows and tmux panes are separate.
+  In cdev client frames, SPC f f starts at that frame's project root.
+  Ctrl+X Ctrl+C closes a client frame; server buffers remain available.
+  Standalone emacs -nw has separate exit behavior. Avoid daemon toggles.
 
 @projects / 6 / CDEV WORKSPACE
 ------------------------------------------------------------------------
-  Configured function inspected; workspace launch not exercised here.
+  Project window: terminal Doom left, ordinary Codex right, 50/50.
 
   cdev                       | Open/reuse current Git project's window
   cdev /path/to/repo         | Open/reuse specified Git project
 
-  Quote paths containing spaces. Matching name and Git root reuses a
-  window; a mismatched path is refused. New windows use Doom left and
-  ordinary Codex right, 50/50, rooted in the project.
+  Quote paths containing spaces. Matching Git roots reuse the existing
+  window without restarting panes. Naming/path conflicts are refused.
+  Persistent client mode needs the named Doom server to be ready.
+  A missing server gives a recovery error before creating new panes.
+
+  Ctrl+F -> n                | Cycle waiting/stopped agent panes
+  Empty attention queues leave focus unchanged; working/idle are skipped.
+  Crimson/silver title: working. White dot: stopped, review or reply.
+  White ! on red: observed approval request. Unknown: original title.
+  A stopped turn does not certify successful task completion.
+
+  Explicit fallback for NEW windows (existing windows are reused):
+    CDEV_EDITOR_MODE=standalone cdev /path/to/repo
+  Omit activity hooks on a future launch:
+    CDEV_DASHBOARD=0 cdev /path/to/repo
 
 @workmux / 7 / WORKTREES + DASHBOARD
 ------------------------------------------------------------------------

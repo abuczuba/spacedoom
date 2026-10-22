@@ -81,3 +81,54 @@ Use Ctrl+F -> key consistently. Distinguish configured bindings, installed
 defaults and unverified runtime references. Remove stale task narratives and
 obsolete project/Linux alias inventories. Correct Escape in tmux copy mode:
 it clears the selection; q exits.
+
+
+## D-008 — Advisory activity evidence, native cached title animation
+
+2026-10-22, approved for repository implementation. Workmux commands support plain
+panes, but current cdev panes had no valid records. Keep global hooks/settings
+untouched; add invocation-local, pane/socket/nonce-pinned advisory hooks for
+future cdev launches. Preserve all policies, notifications and hook trust. Do not
+attach an observer to existing conversations. Unknown evidence stays idle.
+
+Dotbar remains the title-format owner. A workmux-aware title slot prevents its
+format auto-installer competing with Dotbar. Native 1Hz format monitors launch
+short refresh jobs only on changed signatures. Cached arithmetic animates a
+high-contrast silver title/crimson cell without per-tick processes or a polling
+daemon. n cycles attention, c creates, Shift+N selects the next ordinary window.
+The installer refuses binding, local-format and hook-slot conflicts.
+Ghostty's old Cmd+Shift+N forwards n, so the candidate changes that single line
+to c. Keep legacy n creation until separate companion adoption/reload and an
+explicit second tmux reload. Background monitoring never changes bindings.
+
+Stop indicates a stopped turn/review or reply, not task success. PermissionRequest
+is separate evidence; arbitrary conversational waiting and a fully ordered
+approval-resolution stream are unavailable. These boundaries, real-CLI trust
+acceptance and the old-session fallback are explicit in ACTIVITY.md.
+
+## D-009 — Named Doom daemon, native frame workspaces, explicit recovery
+
+2026-10-22, approved for repository implementation and disposable validation.
+Use the installed Doom/Emacs with one named foreground daemon and terminal
+emacsclient frames. No replacement init/config/Org files or parallel workspace
+system. Frame parameters bind project identity; native Doom perspectives persist
+across client closure. Only SPC f f delegates from the associated project root;
+ordinary local directory semantics and explicit outside-project navigation stay
+available. Existing project windows/processes are reused as-is.
+
+A user LaunchAgent owns login startup and job tracking. KeepAlive=false avoids
+unattended failure loops; recovery is explicit, with logs and singleton locking.
+No auto-start from cdev, empty alternate editor, default server, package install,
+GUI repair or unsafe legacy toggle. Persistent service installation/start remains
+unapproved. CDEV_EDITOR_MODE=standalone is an independent launch fallback.
+
+## D-010 — Preserve the existing deployment transaction
+
+The 15-file complete release extends schema-1 manifests with Fish/Python/Elisp/
+plist validation and @HOME@ rendering. No framework/dependency replacement.
+Only exact Fish functions, one companion Ghostty file and one plist need
+additional adoption; other helpers can stay payload-only through pinned includes.
+New component backups must be
+restored before rolling back the shared pointer to an older release without
+those mappings. This is tested using the established journals/restore methods.
+Commit-keyed, idempotent/exclusive staging remains a separate follow-up.

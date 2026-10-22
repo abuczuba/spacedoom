@@ -144,6 +144,11 @@ class ParserTests(unittest.TestCase):
                 path.write_text("#!/bin/sh\nexit 99\n")
                 path.chmod(0o755)
             deployment = Deployment(REPO, home, directory / "active release")
+            for dependency in deployment.manifest()["dependencies"]:
+                if dependency.get("home_path", "").startswith(".config/emacs/"):
+                    stub = home / dependency["home_path"]
+                    stub.parent.mkdir(parents=True, exist_ok=True)
+                    stub.write_text(";; inert external dependency fixture; never evaluated\n")
             with deployment.locked():
                 release = deployment.stage()
                 backup = deployment.migrate(release, "tmux")
@@ -182,7 +187,7 @@ class ParserTests(unittest.TestCase):
             deployment.materialize(directory / "candidate", directory / "candidate", manifest)
             deployment.layout_check(directory / "candidate", manifest, directory / "candidate")
             results = syntax_checks(directory / "candidate", manifest)
-            self.assertEqual(len(results), 5)
+            self.assertEqual(len(results), sum(item["syntax"] != "text" for item in manifest["files"]) + 1)
             self.assertFalse((directory / "state").exists())
 
     def test_ghostty_validator_rejects_invalid_syntax(self):
@@ -191,6 +196,17 @@ class ParserTests(unittest.TestCase):
             (directory / "invalid.ghostty").write_text("font-size = invalid\n")
             with self.assertRaises(ValidationError):
                 syntax_checks(directory, {"files": [{"path": "invalid.ghostty", "syntax": "ghostty"}]})
+
+    def test_new_payload_syntax_failures_are_rejected_without_evaluation(self):
+        with tempfile.TemporaryDirectory(prefix="dotfiles-invalid-payload-") as folder:
+            directory = Path(folder)
+            for kind, content in [("python", "def broken(\n"), ("fish", "function broken\n"),
+                                  ("elisp", "(defun broken ()\n"), ("plist", "<plist><dict>broken")]:
+                with self.subTest(kind=kind):
+                    path = directory / ("invalid." + kind)
+                    path.write_text(content)
+                    with self.assertRaises(ValidationError):
+                        syntax_checks(directory, {"files": [{"path": path.name, "syntax": kind}]})
 
     def test_explicit_ghostty_validation_ignores_default_files(self):
         with tempfile.TemporaryDirectory(prefix="dotfiles-ghostty-defaults-") as folder:

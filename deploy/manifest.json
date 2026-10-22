@@ -1,24 +1,215 @@
 {
   "schema": 1,
   "files": [
-    {"source": "configs/tmux/tmux.conf", "path": "tmux/tmux.conf", "target": ".tmux.conf", "component": "tmux", "syntax": "tmux", "references": ["tmux/czuba-navigation.conf"]},
-    {"source": "configs/tmux/czuba-navigation.conf", "path": "tmux/czuba-navigation.conf", "target": ".config/tmux/czuba-navigation.conf", "component": "tmux", "syntax": "tmux", "references": ["tmux/show-shortcuts.sh"]},
-    {"source": "configs/tmux/cheatsheet.txt", "path": "tmux/cheatsheet.txt", "target": ".config/tmux/cheatsheet.txt", "component": "tmux", "syntax": "text", "references": []},
-    {"source": "configs/tmux/show-shortcuts.sh", "path": "tmux/show-shortcuts.sh", "target": ".config/tmux/show-shortcuts.sh", "component": "tmux", "syntax": "sh", "references": ["tmux/cheatsheet.txt", "tmux/shortcuts.lesskey"]},
-    {"source": "configs/tmux/shortcuts.lesskey", "path": "tmux/shortcuts.lesskey", "target": ".config/tmux/shortcuts.lesskey", "component": "tmux", "syntax": "text", "references": []},
-    {"source": "configs/ghostty/config.ghostty", "path": "ghostty/config.ghostty", "target": ".config/ghostty/config.ghostty", "component": "ghostty", "syntax": "ghostty", "references": []}
+    {
+      "source": "configs/tmux/tmux.conf",
+      "path": "tmux/tmux.conf",
+      "target": ".tmux.conf",
+      "component": "tmux",
+      "syntax": "tmux",
+      "references": [
+        "tmux/czuba-navigation.conf",
+        "tmux/agent-dashboard.conf"
+      ]
+    },
+    {
+      "source": "configs/tmux/czuba-navigation.conf",
+      "path": "tmux/czuba-navigation.conf",
+      "target": ".config/tmux/czuba-navigation.conf",
+      "component": "tmux",
+      "syntax": "tmux",
+      "references": [
+        "tmux/show-shortcuts.sh"
+      ]
+    },
+    {
+      "source": "configs/tmux/cheatsheet.txt",
+      "path": "tmux/cheatsheet.txt",
+      "target": ".config/tmux/cheatsheet.txt",
+      "component": "tmux",
+      "syntax": "text",
+      "references": []
+    },
+    {
+      "source": "configs/tmux/show-shortcuts.sh",
+      "path": "tmux/show-shortcuts.sh",
+      "target": ".config/tmux/show-shortcuts.sh",
+      "component": "tmux",
+      "syntax": "sh",
+      "references": [
+        "tmux/cheatsheet.txt",
+        "tmux/shortcuts.lesskey"
+      ]
+    },
+    {
+      "source": "configs/tmux/shortcuts.lesskey",
+      "path": "tmux/shortcuts.lesskey",
+      "target": ".config/tmux/shortcuts.lesskey",
+      "component": "tmux",
+      "syntax": "text",
+      "references": []
+    },
+    {
+      "source": "configs/ghostty/config.ghostty",
+      "path": "ghostty/config.ghostty",
+      "target": ".config/ghostty/config.ghostty",
+      "component": "ghostty",
+      "syntax": "ghostty",
+      "references": []
+    },
+    {
+      "source": "configs/tmux/agent-dashboard.conf",
+      "path": "tmux/agent-dashboard.conf",
+      "target": ".config/tmux/agent-dashboard.conf",
+      "component": "tmux-dashboard",
+      "syntax": "tmux",
+      "references": [
+        "tmux/agent-dashboard.py"
+      ]
+    },
+    {
+      "source": "configs/tmux/agent-dashboard.py",
+      "path": "tmux/agent-dashboard.py",
+      "target": ".config/tmux/agent-dashboard.py",
+      "component": "tmux-dashboard",
+      "syntax": "python",
+      "references": [
+        "ghostty/config.ghostty"
+      ]
+    },
+    {
+      "source": "configs/cdev/codex_session.py",
+      "path": "cdev/codex_session.py",
+      "target": ".config/cdev/codex_session.py",
+      "component": "cdev",
+      "syntax": "python",
+      "references": [
+        "cdev/activity.py"
+      ]
+    },
+    {
+      "source": "configs/cdev/activity.py",
+      "path": "cdev/activity.py",
+      "target": ".config/cdev/activity.py",
+      "component": "cdev",
+      "syntax": "python",
+      "references": []
+    },
+    {
+      "source": "configs/fish/functions/cdev.fish",
+      "path": "fish/functions/cdev.fish",
+      "target": ".config/fish/functions/cdev.fish",
+      "component": "fish-cdev",
+      "syntax": "fish",
+      "references": [
+        "cdev/codex_session.py",
+        "cdev/doom-server.py"
+      ]
+    },
+    {
+      "source": "configs/fish/functions/cdev-pin.fish",
+      "path": "fish/functions/cdev-pin.fish",
+      "target": ".config/fish/functions/cdev-pin.fish",
+      "component": "fish-cdev",
+      "syntax": "fish",
+      "references": [
+        "cdev/codex_session.py"
+      ]
+    },
+    {
+      "source": "configs/cdev/doom-server.py",
+      "path": "cdev/doom-server.py",
+      "target": ".config/cdev/doom-server.py",
+      "component": "doom-client",
+      "syntax": "python",
+      "references": [
+        "doom/cdev.el"
+      ]
+    },
+    {
+      "source": "configs/doom/cdev.el",
+      "path": "doom/cdev.el",
+      "target": ".config/doom/cdev.el",
+      "component": "doom-client",
+      "syntax": "elisp",
+      "references": []
+    },
+    {
+      "source": "configs/launchd/local.dotfiles.doom.plist",
+      "path": "launchd/local.dotfiles.doom.plist",
+      "target": "Library/LaunchAgents/local.dotfiles.doom.plist",
+      "component": "doom-service",
+      "syntax": "plist",
+      "references": [
+        "cdev/doom-server.py"
+      ]
+    }
   ],
   "dependencies": [
-    {"command": "tmux"},
-    {"command": "ghostty"},
-    {"command": "workmux"},
-    {"path": "/opt/homebrew/bin/fish", "executable": true},
-    {"path": "/bin/sh", "executable": true},
-    {"path": "/usr/bin/awk", "executable": true},
-    {"path": "/usr/bin/less", "executable": true},
-    {"path": "/usr/bin/pbcopy", "executable": true},
-    {"home_path": ".tmux/plugins/tmux-dotbar/dotbar.tmux", "executable": true},
-    {"home_path": ".tmux/plugins/tpm/tpm", "executable": true}
+    {
+      "command": "tmux"
+    },
+    {
+      "command": "ghostty"
+    },
+    {
+      "command": "workmux"
+    },
+    {
+      "path": "/opt/homebrew/bin/fish",
+      "executable": true
+    },
+    {
+      "path": "/bin/sh",
+      "executable": true
+    },
+    {
+      "path": "/usr/bin/awk",
+      "executable": true
+    },
+    {
+      "path": "/usr/bin/less",
+      "executable": true
+    },
+    {
+      "path": "/usr/bin/pbcopy",
+      "executable": true
+    },
+    {
+      "home_path": ".tmux/plugins/tmux-dotbar/dotbar.tmux",
+      "executable": true
+    },
+    {
+      "home_path": ".tmux/plugins/tpm/tpm",
+      "executable": true
+    },
+    {
+      "command": "python3"
+    },
+    {
+      "path": "/usr/bin/python3",
+      "executable": true
+    },
+    {
+      "path": "/opt/homebrew/bin/emacs",
+      "executable": true
+    },
+    {
+      "path": "/opt/homebrew/bin/emacsclient",
+      "executable": true
+    },
+    {
+      "home_path": ".config/emacs/early-init.el"
+    },
+    {
+      "home_path": ".config/emacs/sources/doom+/modules/ui/workspaces/config.el"
+    },
+    {
+      "home_path": ".config/emacs/.local/straight/repos/persp-mode.el/persp-mode.el"
+    },
+    {
+      "home_path": ".config/emacs/.local/straight/repos/projectile/projectile.el"
+    }
   ],
   "empty_guards": [
     ".config/ghostty/config",
