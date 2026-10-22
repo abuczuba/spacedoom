@@ -23,6 +23,12 @@ from urllib.parse import quote
 TTL = 900
 STATES = {"working": "🤖", "waiting": "💬", "done": "✅"}
 MONITOR = "@dotfiles-agents"
+# Foreground/background pairs. Deep reds form the contiguous glow; adjusted
+# steel reflections keep every letter above 4.5:1 contrast, even in its wake.
+WORKING_BASE = ("#85868c", "#111214")
+WORKING_WAVE = (("#cc4650", "#000000"),  # Red light at the leading edge.
+                ("#d4d4d6", "#a42a36"),  # One cold reflection in blood red.
+                ("#b1b2b8", "#751b25"))  # Dark crimson fading into stone.
 # Untracked windows contribute nothing, including their titles. A cache being
 # cleared contributes until the refresh observes its now-empty workmux status.
 SIGNATURE = ("#{W:#{?#{||:#{||:#{@workmux_status},#{P:#{@workmux_pane_status}#{@dotfiles-agent-evidence}}},#{@dotfiles-agent}},"
@@ -49,15 +55,20 @@ def title_format(title, state):
         # Server age advances once per second. Avoid the A: modifier, which
         # redraws at 10Hz even for A/10. No date/sh/Python process per frame.
         chars = [c for c in title if c.isprintable()]
-        count = max(1, len(chars))
+        # The wake exits the right edge before the next pass starts at the
+        # left. Never split the band across opposite ends of the title.
+        count = max(1, len(chars) + len(WORKING_WAVE) - 1)
         clock = ("#{e|-:#{t/d:start_time},#{e|*:#{e|/:#{t/d:start_time},"
                  + str(count) + "}," + str(count) + "}}")
         parts = []
         for i, char in enumerate(chars):
-            position = "#{==:" + clock + "," + str(i) + "}"
-            fg = "#{?" + position + ",#e3e6e8,#b8bec4}"
-            bg = "#{?" + position + ",#741527,#171a1d}"
-            parts.append("#[fg=" + fg + ",bg=" + bg + "]" + literal(char))
+            # Escape style commas inside conditional branches. Select a whole
+            # style once, rather than repeating the clock for fg and bg.
+            style = "#[fg=" + WORKING_BASE[0] + "#,bg=" + WORKING_BASE[1] + "]"
+            for offset, (fg, bg) in reversed(list(enumerate(WORKING_WAVE))):
+                position = "#{==:" + clock + "," + str(i + offset) + "}"
+                style = "#{?" + position + ",#[fg=" + fg + "#,bg=" + bg + "]," + style + "}"
+            parts.append(style + literal(char))
         return "".join(parts) + restore
     return text
 

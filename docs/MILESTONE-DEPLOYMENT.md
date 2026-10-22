@@ -1,6 +1,9 @@
 # Proposed activity/Doom deployment and recovery
 
 **Plan only. This milestone has not been staged, activated or reloaded.**
+The shimmer/key refinement builds on 17c6f99; stage the final new commit, not the
+earlier payload. If that earlier commit is ever found staged, preserve its files
+and receipt unchanged and assign the new payload a separate release ID.
 Production still uses:
 
 ```text
@@ -52,6 +55,13 @@ create in the same directory during the bridge, so current sessions remain safe.
 The apps cannot be switched jointly atomically. Do not start additional tmux
 servers between Ghostty migration and its confirmed reload; existing main stays
 in legacy mode until the second controlled tmux reload.
+
+The isolated Ghostty-parser/PTY regression verifies this bridge with real input
+bytes: old n creates before adoption; old n and new c both create through the
+companion transition; only the later explicit tmux reload changes n to attention.
+Physical acceptance must still confirm Cmd+Shift+N, Ctrl+F n/c/Shift+N, Cmd+1–9,
+pane shortcuts and Ctrl+F then Option+h/l in the running Ghostty application.
+Do not treat the file-based gate as GUI reload evidence or skip the bridge.
 
 ## Exact approval sequence
 

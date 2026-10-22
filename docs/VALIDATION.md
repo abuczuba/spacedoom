@@ -1,5 +1,31 @@
 # Validation evidence — 2026-10-21–22
 
+## Final shimmer and keyboard compatibility refinement
+
+The follow-up to 17c6f99 passed 37 relevant regressions in 32.780s: test_activity,
+test_cdev, test_dashboard, test_terminal and the existing combined real Doom/
+tmux cdev test. The new tests verify native tmux output at every wave phase,
+short/punctuated titles, contiguous movement/edge exit, palette contrast and
+preview parity. The working clock remains 1Hz without A: or external jobs.
+
+Ghostty +show-config parses both snapshots in private HOME/XDG. Its decoded
+text-action bytes go through an attached private tmux client, exercising the
+safe legacy/companion/full phases, n/c/N, nine numeric routes, pane navigation
+and window reordering with focus. Protected bindings are unchanged. Initial
+fixture mistakes (unsupported action flag and wrong Python process identity)
+were corrected before the passing suite; no production fix was attempted.
+
+Paired 24-character working expansion: 0.3305 ms at 17c6f99, 0.4803 ms with the
+three-cell wave. Twenty-idle-window monitor: 0.2386 ms; zero animation processes.
+See ACTIVITY.md for the full palette, measurements and interpretation.
+Read-only final fingerprints preserve production files/releases/backups/pointer
+and tmux identities, root PIDs, prefix, bindings and hooks. Only ec518f0 exists
+under releases. Physical keys/GUI-loaded config/appearance and real Codex hook
+trust/delivery remain unverified. The prior full 79-test result below is retained;
+the larger Emacs workstream and unchanged deployment transactions were not rebuilt.
+
+## Earlier milestone and deployment evidence
+
 All implementation testing used development files, owned temporary homes and
 private servers. The ec518f0 release was subsequently staged inactive; no live
 configuration was migrated and no live application was reloaded. This is

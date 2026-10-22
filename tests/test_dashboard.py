@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
 import json
 import os
 from pathlib import Path
+import pty
 import re
 import shlex
+import select
+import signal
 import subprocess
 import tempfile
+import threading
 import time
 import unittest
 from unittest.mock import patch
@@ -52,6 +57,18 @@ class DashboardTests(unittest.TestCase):
         self.assertIn("t/d:start_time", output)
         self.assertNotIn("#{A", output)
         self.assertNotIn("#(", output)
+
+    def test_preview_matches_readable_stone_and_blood_palette(self):
+        preview = (REPO / "docs/previews/dashboard.html").read_text()
+        palette = json.loads(re.search(r'id="working-palette">(.*?)</script>', preview).group(1))
+        self.assertEqual(palette, dict(base=list(dashboard.WORKING_BASE),
+                                      wave=[list(colors) for colors in dashboard.WORKING_WAVE]))
+        def luminance(color):
+            rgb = [int(color[i:i+2], 16) / 255 for i in [1, 3, 5]]
+            values = [v / 12.92 if v <= .04045 else ((v + .055) / 1.055) ** 2.4 for v in rgb]
+            return sum(a*b for a, b in zip(values, [.2126, .7152, .0722]))
+        for fg, bg in [dashboard.WORKING_BASE, *dashboard.WORKING_WAVE]:
+            self.assertGreaterEqual((luminance(fg) + .05) / (luminance(bg) + .05), 4.5, (fg, bg))
 
 
 @unittest.skipUnless(INTEGRATION, "Use --integration for private tmux/workmux tests")
@@ -157,6 +174,137 @@ class DashboardIntegration(unittest.TestCase):
         self.assertEqual(before, after)
         self.assertEqual(bytes(r"\x06\x63", "ascii").decode("unicode_escape"), "\x06c")
 
+    def test_forwarded_keys_cross_safe_rollout_phases_in_real_tmux_client(self):
+        candidate = self.ghostty.read_text()
+        legacy = subprocess.check_output(["git", "show", "ec518f0:configs/ghostty/config.ghostty"], cwd=REPO, text=True)
+        env = self.view.env | {"HOME": str(self.root / "home"), "XDG_CONFIG_HOME": str(self.root / "home/.config"),
+                               "TERM": "xterm-256color"}
+        def ghostty_bytes(source):
+            self.ghostty.write_text(source)
+            # This action has no --config-file flag. Use the isolated HOME/XDG
+            # config path, and assert below that both snapshots really loaded.
+            result = subprocess.run(["ghostty", "+show-config"],
+                                    env=env, capture_output=True, text=True, timeout=10)
+            self.assertEqual(result.returncode, 0, "Ghostty configuration parsing failed")
+            keys = {}
+            for line in result.stdout.splitlines():
+                match = re.fullmatch(r"keybind = ([^=]+)=text:(.*)", line)
+                if match:
+                    # show-config escapes the text action's backslashes for
+                    # serialization; the action then interprets its escapes.
+                    text = bytes(match[2], "ascii").decode("unicode_escape")
+                    keys[match[1]] = bytes(text, "ascii").decode("unicode_escape").encode("ascii")
+            return keys
+        old_keys = ghostty_bytes(legacy)
+        new_keys = ghostty_bytes(candidate)
+        self.assertEqual(old_keys["super+shift+n"], b"\x06n")
+        self.assertEqual(new_keys["super+shift+n"], b"\x06c")
+        self.assertEqual({k:v for k,v in old_keys.items() if k != "super+shift+n"},
+                         {k:v for k,v in new_keys.items() if k != "super+shift+n"})
+        self.ghostty.write_text(legacy)
+        navigation = self.root / "navigation.conf"
+        navigation.write_text((REPO / "configs/tmux/czuba-navigation.conf").read_text().replace("@RELEASE@", str(REPO / "configs")))
+        self.tm("source-file", str(navigation))
+        self.tm("set-option", "-g", "prefix", "C-f")
+        self.tm("set-option", "-g", "base-index", "1")
+        self.tm("move-window", "-r")
+        self.tm("set-option", "-g", "renumber-windows", "on")
+        self.tm("set-option", "-g", "default-command", "/bin/sleep 120")
+        self.tm("bind-key", "Tab", "run-shell", "workmux last-agent")
+        protected = {k:v for k,v in self.view.prefix_bindings().items() if k not in {"n", "c", "N"}}
+        directory = self.root / "project with spaces"
+        directory.mkdir()
+        start = self.tm("new-window", "-P", "-F", "#{window_id}", "-c", str(directory), "/bin/sleep", "120").strip()
+        self.view.install()  # Legacy bridge: n and c both create in the directory.
+
+        child, fd = pty.fork()
+        if child == 0:
+            os.execvpe("tmux", ["tmux", "-N", "-S", self.socket, "attach-session", "-t", "=dotfiles-test"], env)
+        stopped = threading.Event()
+        def drain():
+            while not stopped.is_set():
+                try:
+                    if select.select([fd], [], [], .05)[0]:
+                        if not os.read(fd, 65536):
+                            return
+                except OSError:
+                    return
+        reader = threading.Thread(target=drain, daemon=True)
+        reader.start()
+        def close_client():
+            stopped.set()
+            reader.join(timeout=1)
+            os.close(fd)
+            until = time.monotonic() + 2
+            while time.monotonic() < until:
+                if os.waitpid(child, os.WNOHANG)[0]:
+                    return
+                time.sleep(.02)
+            os.kill(child, signal.SIGTERM)  # Only this owned private test client.
+            os.waitpid(child, 0)
+        self.addCleanup(close_client)
+        def wait_for(condition):
+            until = time.monotonic() + 4
+            while time.monotonic() < until:
+                if condition():
+                    return
+                time.sleep(.02)
+            self.fail("forwarded bytes did not produce the expected private tmux state")
+        wait_for(lambda: str(child) in self.tm("list-clients", "-F", "#{client_pid}").splitlines())
+        def windows():
+            return self.tm("list-windows", "-F", "#{window_id}").splitlines()
+        def create(keys):
+            before = windows()
+            os.write(fd, keys)
+            wait_for(lambda: len(windows()) == len(before) + 1)
+            self.assertEqual(self.tm("display-message", "-p", "#{pane_current_path}").strip(), str(directory))
+        self.tm("select-window", "-t", start)
+        create(old_keys["super+shift+n"])
+        self.ghostty.write_text(candidate)  # Migration may become visible at once.
+        self.view.watch()  # File changes/new sessions cannot rebind attention.
+        create(old_keys["super+shift+n"])
+        create(new_keys["super+shift+n"])
+        self.view.install()  # Only after separately approved GUI reload/key check.
+        create(new_keys["super+shift+n"])
+        create(b"\x06c")
+
+        # A real Python pane gives the adapter its actual stable identity.
+        agent = self.tm("new-window", "-d", "-P", "-F", "#{pane_id}", "-c", str(directory),
+                        "/usr/bin/python3", "-c", "import time; time.sleep(120)").strip()
+        record = dict(socket=self.socket, pane=agent, pid=int(self.tm("display-message", "-p", "-t", agent, "#{pane_pid}")),
+                      boot=self.tm("display-message", "-p", "#{start_time}:#{pid}").strip(),
+                      token="forward-chain", session="synthetic", turn="one", state="waiting", stamp=int(time.time()))
+        path = self.root / "state/dotfiles-dashboard" / (hashlib.sha256(self.socket.encode()).hexdigest() + "-" + agent[1:] + ".json")
+        path.write_text(json.dumps(record))
+        path.chmod(0o600)
+        self.tm("set-option", "-p", "-t", agent, "@dotfiles-agent-evidence", "forward-chain:1")
+        self.assertEqual([row["pane"] for row in self.view.snapshot()], [agent],
+                         self.tm("list-panes", "-a", "-F", "#{pane_id}:#{pane_current_command}"))
+        count = len(windows())
+        os.write(fd, b"\x06n")
+        wait_for(lambda: self.tm("display-message", "-p", "#{pane_id}").strip() == agent)
+        self.assertEqual(len(windows()), count)
+        create(new_keys["super+shift+n"])
+        while len(windows()) < 9:
+            self.tm("new-window", "-d", "/bin/sleep", "120")
+        for number in range(1, 10):
+            os.write(fd, new_keys["super+digit_" + str(number)])
+            wait_for(lambda: self.tm("display-message", "-p", "#{window_index}").strip() == str(number))
+        order = windows()
+        self.tm("select-window", "-t", order[0])
+        os.write(fd, b"\x06N")
+        wait_for(lambda: self.tm("display-message", "-p", "#{window_id}").strip() == order[1])
+        os.write(fd, b"\x06\x1bl")  # Prefix, then Option+l moves this owned window.
+        wait_for(lambda: windows()[2] == order[1])
+        self.assertEqual(self.tm("display-message", "-p", "#{window_id}").strip(), order[1])
+        left = self.tm("display-message", "-p", "#{pane_id}").strip()
+        right = self.tm("split-window", "-d", "-h", "-P", "-F", "#{pane_id}", "/bin/sleep", "120").strip()
+        os.write(fd, new_keys["super+shift+l"])
+        wait_for(lambda: self.tm("display-message", "-p", "#{pane_id}").strip() == right)
+        os.write(fd, new_keys["super+shift+h"])
+        wait_for(lambda: self.tm("display-message", "-p", "#{pane_id}").strip() == left)
+        self.assertEqual({k:v for k,v in self.view.prefix_bindings().items() if k not in {"n", "c", "N"}}, protected)
+
     def test_title_and_hook_conflicts_are_refused_without_overwrite(self):
         self.tm("set-option", "-w", "window-status-format", "custom-title")
         with self.assertRaises(ValueError):
@@ -217,19 +365,33 @@ class DashboardIntegration(unittest.TestCase):
             value = self.tm("display-message", "-p", dashboard.TITLE_SLOT)
             self.assertIn("ABCD", re.sub(r"#\[[^]]*\]", "", value))
             if state == "working":
-                self.assertEqual(value.count("fg=#e3e6e8"), 1, value)
-                def luminance(color):
-                    rgb = [int(color[i:i+2], 16) / 255 for i in [1, 3, 5]]
-                    values = [v / 12.92 if v <= .04045 else ((v + .055) / 1.055) ** 2.4 for v in rgb]
-                    return sum(a*b for a, b in zip(values, [.2126, .7152, .0722]))
                 colors = re.findall(r"#\[fg=(#[0-9a-f]{6}),bg=(#[0-9a-f]{6})\]", value)
                 self.assertEqual(len(colors), 4)
-                self.assertTrue(all((luminance(fg) + .05) / (luminance(bg) + .05) >= 4.5 for fg, bg in colors))
+                self.assertTrue(all(pair in [dashboard.WORKING_BASE, *dashboard.WORKING_WAVE] for pair in colors))
                 time.sleep(1.05)
                 second = self.tm("display-message", "-p", dashboard.TITLE_SLOT)
                 self.assertNotEqual(value, second)
             else:
                 self.assertIn("●" if state == "done" else "!", value)
+
+    def test_one_cohesive_wave_moves_right_and_exits_before_wrapping(self):
+        # Inject only the clock value; exercise the actual cached native format
+        # at every phase, including short titles, punctuation and the wrap.
+        for title in ["A", "AB", "stone-agent", "a#,'{}z"]:
+            rendered = dashboard.title_format(title, "working").replace("#{t/d:start_time}", "#{@test-age}")
+            period = len(title) + len(dashboard.WORKING_WAVE) - 1
+            for phase in range(period + 1):
+                self.tm("set-option", "-w", "@test-age", str(phase))
+                value = self.tm("display-message", "-p", rendered).strip()
+                self.assertEqual(re.sub(r"#\[[^]]*\]", "", value), title)
+                colors = re.findall(r"#\[fg=(#[0-9a-f]{6}),bg=(#[0-9a-f]{6})\]", value)
+                expected = [dashboard.WORKING_WAVE[phase % period - index]
+                            if 0 <= phase % period - index < len(dashboard.WORKING_WAVE)
+                            else dashboard.WORKING_BASE for index in range(len(title))]
+                self.assertEqual(colors, expected, (title, phase, value))
+                lit = [index for index, pair in enumerate(colors) if pair != dashboard.WORKING_BASE]
+                self.assertLessEqual(len(lit), 3)
+                self.assertEqual(lit, list(range(min(lit), max(lit) + 1)))
 
     def test_concurrent_transitions_movement_titles_termination_and_attention(self):
         a, ap = self.agent("agent-a", "waiting")

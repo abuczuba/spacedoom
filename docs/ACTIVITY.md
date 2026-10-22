@@ -45,7 +45,7 @@ See [OpenAI's hook contract](https://learn.chatgpt.com/docs/hooks) and
 
 | Evidence | Display | Limits |
 |---|---|---|
-| UserPromptSubmit / PreToolUse / PostToolUse for a known live turn | Silver title with a traveling crimson/silver cell | Evidence of activity, not a progress percentage |
+| UserPromptSubmit / PreToolUse / PostToolUse for a known live turn | Gunmetal title with a connected crimson/blood-red vein | Evidence of activity, not a progress percentage |
 | PermissionRequest | White `!` on blood red | Approval requests; not every kind of user question |
 | Stop | Static white `●` beside title | Turn stopped / review or reply; not proof of successful completion |
 | SessionStart alone, Interrupt, SessionEnd, process exit, missing/expired/untrusted data | Original idle title | Unknown is deliberately unlabelled |
@@ -84,7 +84,28 @@ batched and serialized. A delayed initial refresh covers the monitor's first
 comparison tick. Monitors continue with no attached client (tested).
 
 The cached format colors the actual title. Integer arithmetic on tmux server age
-moves the silver character once per second. No `#()` job, `date`, polling daemon
+moves one connected band right by one character per second. The red-lit leading
+edge is followed by a blood-red reflection and a dark-crimson wake: at most three
+adjacent characters, with the rest in weathered steel. The wake exits the right
+edge before the next pass starts at the left; there are never two disconnected
+highlights at opposite ends. No per-letter random phases, flashing or hue cycling.
+
+Final working palette (foreground / background):
+
+| Region | Colors |
+|---|---|
+| Charcoal and weathered steel | #85868C / #111214 |
+| Red-lit leading edge | #CC4650 / #000000 |
+| Blood-red reflection with one cold-silver accent | #D4D4D6 / #A42A36 |
+| Dark-crimson wake | #B1B2B8 / #751B25 |
+
+The deepest reds form the glow behind steel lettering; the leading red letter
+uses black for contrast. All four pairs exceed 4.5:1. Darker suggested foreground
+greys/reds would lose legibility on charcoal, so the steel reflections are raised.
+The offline preview uses the same palette and phase model, checked by regression.
+Stopped/waiting/idle treatments and Dotbar's surrounding theme remain unchanged.
+
+No `#()` job, `date`, polling daemon
 or 10Hz `A:` animation is used. Status interval is temporarily 1 while observed
 agents work and returns to its prior value when they stop/expire. Unchanged tool
 events avoid another cache write/render; an active lease renews at most every 30s.
@@ -93,17 +114,20 @@ Private benchmark, 24-character title, three samples of 2,000 expansions:
 
 | Format | Median ms / expansion |
 |---|---:|
-| Idle | 0.0170 |
-| Working | 0.3060 |
-| Stopped | 0.0234 |
+| Idle | 0.0178 |
+| Working | 0.4803 |
+| Stopped | 0.0231 |
 | Permission request | 0.0233 |
-| Monitor over 20 idle windows | 0.2352 |
+| Monitor over 20 idle windows | 0.2386 |
 
 These are local wall-time bounds including tmux command parsing and captured
 output, not system-wide CPU measurements. Animation launches zero processes.
 Reproduce with `python3 -B scripts/benchmark_dashboard.py`; it always creates an
-owned private socket, never uses production. Changed-cache refresh for three inert agents measured 47.14 ms wall time; an
-unchanged working hook measured 23.27 ms and performed no tmux/cache update.
+owned private socket, never uses production. In the same measurement session,
+17c6f99's single-cell working format took 0.3305 ms; the three-cell band adds
+0.1498 ms per 24-character expansion. Native 1Hz cadence and zero animation jobs
+are unchanged. Changed-cache refresh for three inert agents measured 53.94 ms
+wall time; an unchanged working hook measured 25.72 ms and performed no tmux/cache update.
 Actual terminal redraw/plugin cost and real-hook latency still need live
 observation after approved activation.
 
@@ -116,6 +140,30 @@ next-window: project-directory creation moves to `Ctrl+F c`, the existing standa
 creation key. Shift+N adds ordinary next-window (unbound in inspected defaults);
 Space remains next-layout. The installer refuses a conflicting N/n/c binding.
 Tab remains workmux last-agent.
+
+Final configured chain after coordinated adoption/reloads:
+
+| Input | tmux route | Behavior |
+|---|---|---|
+| Ctrl+F, release, n | prefix n | Cycle attention panes; empty queue leaves focus |
+| Cmd+Shift+N | text:\x06\x63 → prefix c | Create a window in the pane's directory |
+| Ctrl+F, release, c | prefix c | Same window creation |
+| Ctrl+F, release, Shift+N | prefix N | Ordinary next window |
+| Cmd+1–9 | prefix 1–9 | Existing numbered-window selection |
+
+Fresh read-only inspection on 2026-10-22 confirms the production n binding really
+creates in the pane directory, c is standard creation, N is unbound and Tab runs
+workmux last-agent. Ghostty's headless effective-config output confirms its old
+Cmd+Shift+N route is n. GUI-loaded physical delivery still needs acceptance.
+
+The new end-to-end regression parses both Ghostty snapshots through the installed
+headless +show-config action using a private HOME/XDG config. It decodes the
+serialized text action and writes its bytes into an actual attached private tmux
+PTY. It tests both routes through every rollout phase, n attention, c creation,
+N navigation, all nine Command-number routes, pane movement and window reordering.
+Protected workmux/popup/other bindings are compared unchanged. This covers the
+parser → text bytes → tmux input → binding → behavior chain, not macOS key-event
+delivery or proof that a running Ghostty window loaded the file.
 
 **Companion-key conflict:** the existing Ghostty Cmd+Shift+N sends Ctrl+F n.
 Changing n alone would break new-window creation. The candidate changes exactly

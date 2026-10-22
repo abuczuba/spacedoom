@@ -94,9 +94,14 @@ attach an observer to existing conversations. Unknown evidence stays idle.
 Dotbar remains the title-format owner. A workmux-aware title slot prevents its
 format auto-installer competing with Dotbar. Native 1Hz format monitors launch
 short refresh jobs only on changed signatures. Cached arithmetic animates a
-high-contrast silver title/crimson cell without per-tick processes or a polling
+readable steel title/crimson band without per-tick processes or a polling
 daemon. n cycles attention, c creates, Shift+N selects the next ordinary window.
 The installer refuses binding, local-format and hook-slot conflicts.
+The final approved aesthetic is one connected three-cell wave, moving right
+at 1Hz and leaving the right edge before reentering on the left. Dark-crimson
+and blood-red glow under steel reflections; a red-lit leading letter uses
+black for contrast. All working palette pairs exceed 4.5:1; no random color
+phases or flashing. This refines 17c6f99 without changing lifecycle detection.
 Ghostty's old Cmd+Shift+N forwards n, so the candidate changes that single line
 to c. Keep legacy n creation until separate companion adoption/reload and an
 explicit second tmux reload. Background monitoring never changes bindings.

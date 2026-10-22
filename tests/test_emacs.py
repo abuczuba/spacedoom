@@ -139,7 +139,7 @@ class DoomIntegration(unittest.TestCase):
         panes = h.tm("list-panes", "-t", first, "-F", "#{pane_id}").splitlines()
         hook = next(arg for arg in h.log()[0] if arg.startswith("hooks.UserPromptSubmit="))
         command = json.JSONDecoder().raw_decode(hook.split("command=", 1)[1])[0]
-        for event, expected in [("UserPromptSubmit", "#741527"), ("PermissionRequest", "#a50021"), ("Stop", "●")]:
+        for event, expected in [("UserPromptSubmit", "#751b25"), ("PermissionRequest", "#a50021"), ("Stop", "●")]:
             payload = dict(hook_event_name=event, session_id="combined-thread", turn_id="combined-turn", tool_name="Bash")
             result = subprocess.run(shlex.split(command), env=h.env | {"TMUX_PANE": "%9999"}, input=json.dumps(payload),
                                     text=True, capture_output=True, timeout=5)

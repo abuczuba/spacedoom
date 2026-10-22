@@ -1,5 +1,71 @@
 # Current state and next action
 
+## Final shimmer and key compatibility refinement — 2026-10-22
+
+Baseline: clean HEAD 17c6f99. This bounded follow-up changes the working-title
+renderer, offline preview, related tests/cheatsheet and documentation only.
+The broader Emacs/event-tracking implementation below remains intact. No release
+was staged; the only deployment release is still ec518f0. No 17c6f99 release was
+found, and existing ec518f0 files/receipt/backup/pointer were preserved unchanged.
+
+Fresh read-only observation confirms Ghostty's effective configured Cmd+Shift+N
+text route is Ctrl+F n; the running tmux n creates in the pane directory, c is
+standard creation, N is unbound, and Tab runs workmux last-agent. The companion
+Ctrl+F c mapping and safe legacy-mode bridge from 17c6f99 are retained, with no
+additional binding or routing change. Physical GUI delivery remains unverified.
+
+Working now shows a connected band of at most three characters moving right
+one step per second through dark-steel text. The red leading edge, blood-red
+reflection and dark-crimson wake leave the right edge before the next pass.
+The shared preview/renderer palette and every phase are tested; all foreground/
+background pairs exceed 4.5:1. Stopped white dot, approval white ! on red,
+untracked/idle appearance, event evidence and Dotbar ownership remain unchanged.
+See ACTIVITY.md for exact colors and the updated preview.
+
+**37 relevant regressions passed in 32.780s**, using:
+
+```sh
+python3 -B scripts/test.py --integration --match 'test_activity.*' --match 'test_cdev.*' --match 'test_dashboard.*' --match 'test_terminal.*' --match '*test_real_cdev_layout_dashboard_and_client_pane_close'
+```
+
+The new Ghostty-parser → serialized text bytes → attached private tmux PTY test
+proves window creation throughout the coordinated bridge, then n attention,
+c creation, N navigation, Cmd+1–9, pane navigation and window reordering/focus.
+All protected bindings, including workmux/popup, compare unchanged. Existing
+concurrent/stale/termination tests and combined real Doom-client/cdev test pass.
+No production session served as a disposable test subject. Initial test-fixture
+failures were corrected: +show-config needs private HOME/XDG, not --config-file;
+the synthetic agent must use cdev's /usr/bin/python3 identity. No live fix occurred.
+The prior complete 79-test result below remains evidence for unchanged work.
+
+Paired private benchmark: 24-character working expansion 0.4803 ms versus
+17c6f99's 0.3305 ms; the richer band adds 0.1498 ms. Idle expansion 0.0178 ms,
+20-idle-window monitor 0.2386 ms, three-agent refresh 53.94 ms. Native 1Hz and zero
+processes per animation step are preserved. This is local wall time, not live
+GUI CPU/redraw acceptance.
+
+Final comparison confirms unchanged live Ghostty/tmux files and complete
+deployment metadata/content; unchanged tmux server/session/window/seven-pane
+identities/root PIDs, prefix, all bindings and hooks. No application was reloaded,
+no active window moved and no service/global hook/workmux configuration changed.
+Final staged review passed: 10 files cleared the heuristic secret/path and
+whitespace checks, all staged blobs matched reviewed working files, and all six
+relative documentation links resolved. The authorized local commit deploys
+nothing and is not pushed.
+
+The coordinated rollout in MILESTONE-DEPLOYMENT.md is still mandatory: new
+inactive release → legacy tmux bridge → companion Ghostty migration/reload and
+physical verification → explicit second tmux reload enabling n. Until then n
+creates windows. Physical shimmer/keyboard delivery and real Codex hooks/trust
+remain acceptance gates. Rollback restores original forwarding before c's default.
+The commit-keyed/idempotent staging-tool improvement remains a separate follow-up.
+
+Next single action: review the committed refinement and separately approve
+inactive staging of that exact new commit and the unchanged 15-file manifest.
+No activation, migration, reload or service action is authorized by this record.
+
+## Broader milestone record — 17c6f99
+
 **2026-10-22 — activity dashboard + persistent Doom development milestone.**
 Production remains ec518f0. The user reports that all original physical tmux
 acceptance tests passed: popup appearance/navigation, window movement and
