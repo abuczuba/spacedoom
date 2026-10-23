@@ -55,6 +55,7 @@ class DoomHarness:
         # The installed, inspected module selection has no private data.
         private.joinpath("init.el").write_bytes((REPO / "tests/fixtures/doom-init.el").read_bytes())
         private.joinpath("config.el").write_bytes((REPO / "tests/fixtures/doom-config.el").read_bytes())
+        private.joinpath("clipboard.el").write_bytes((REPO / "configs/doom/clipboard.el").read_bytes())
         self.env = os.environ.copy()
         for key in ["TMUX", "TMUX_PANE", "DOOMPROFILE", "DOOMPROFILELOADFILE", "EMACSDIR",
                     "EMACS_SERVER_FILE", "EMACS_SOCKET_NAME", "ALTERNATE_EDITOR", "EMACSNATIVELOADPATH", "EMACSLOADPATH"]:
@@ -73,14 +74,19 @@ class DoomHarness:
         self.frame_clients = {}
         self.stop = threading.Event()
 
-    def start(self):
-        self.process = subprocess.Popen([sys.executable, "-B", str(REPO / "configs/cdev/doom-server.py"),
-                                         "serve", "--socket", str(self.socket), "--emacs-dir", str(self.emacs_dir)],
+    def start(self, project_integration=True):
+        command = ([sys.executable, "-B", str(REPO / "configs/cdev/doom-server.py"),
+                    "serve", "--socket", str(self.socket), "--emacs-dir", str(self.emacs_dir)]
+                   if project_integration else
+                   ["/opt/homebrew/bin/emacs", "--init-directory", str(self.emacs_dir),
+                    "--fg-daemon=" + str(self.socket)])
+        self.process = subprocess.Popen(command,
                                         env=self.env, cwd=self.root, stdout=self.log, stderr=self.log)
         until = time.monotonic() + 35
         while time.monotonic() < until and self.process.poll() is None:
             if self.socket.exists():
-                result = self.request("(and (featurep 'dotfiles-cdev) (bound-and-true-p persp-mode) t)", check=False)
+                feature = "dotfiles-cdev" if project_integration else "dotfiles-clipboard"
+                result = self.request("(and (featurep '" + feature + ") (bound-and-true-p persp-mode) t)", check=False)
                 if result.returncode == 0 and result.stdout.strip() == "t":
                     return
             time.sleep(0.1)
@@ -126,8 +132,7 @@ class DoomHarness:
         # daemon/client. The private server is only an observation/control path.
         expression = "(progn (require 'server) (setq server-name " + json.dumps(str(self.socket)) + ") (server-start))"
         child, fd = self.terminal(root, ["/opt/homebrew/bin/emacs", "--init-directory", str(self.emacs_dir),
-                                       "-nw", "--load", str(REPO / "configs/doom/clipboard.el"),
-                                       "--eval", expression])
+                                       "-nw", "--eval", expression])
         until = time.monotonic() + 35
         while time.monotonic() < until:
             if self.socket.exists():
@@ -138,7 +143,7 @@ class DoomHarness:
         raise AssertionError("disposable standalone Doom did not initialize")
 
     def connect(self, root):
-        parameters = "((cdev-project-root . " + json.dumps(str(root)) + "))"
+        parameters = "((cdev-project-root . " + json.dumps(str(root) + "/") + "))"
         child, fd = self.terminal(root, ["/opt/homebrew/bin/emacsclient", "-s", str(self.socket), "-a", "/usr/bin/false",
                                        "-t", "--frame-parameters=" + parameters])
         self.frame_clients[str(root)] = (child, fd)

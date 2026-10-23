@@ -3,7 +3,6 @@
 ;; Ghostty owns Cmd+C for terminal selections. Keep that behavior in shell and
 ;; Codex panes; use the native Doom leader for editor selections instead.
 (require 'evil)
-(require 'simpleclip)
 (require 'rect)
 
 (evil-define-command dotfiles/copy-visual-to-clipboard ()
@@ -36,7 +35,8 @@ selection, buffer and ordinary Evil yank bindings unchanged."
       (error "Doom SPC y is already bound; review the clipboard conflict"))
     (unless dotfiles-clipboard--installed
       (setq dotfiles-clipboard--previous-binding current))
-    (define-key doom-leader-map (kbd "y") #'dotfiles/copy-visual-to-clipboard)
+    (map! :leader :desc "Copy visual selection to macOS clipboard"
+          "y" #'dotfiles/copy-visual-to-clipboard)
     (setq dotfiles-clipboard--installed t)))
 
 (defun dotfiles-clipboard-uninstall ()
@@ -46,6 +46,18 @@ selection, buffer and ordinary Evil yank bindings unchanged."
     (define-key doom-leader-map (kbd "y") dotfiles-clipboard--previous-binding))
   (setq dotfiles-clipboard--installed nil))
 
-(dotfiles-clipboard-install)
+(use-package! simpleclip
+  :demand t
+  :config
+  ;; s-c is a PACKAGE default, not a user shortcut. Retire only that override;
+  ;; native GUI Command keys and simpleclip's cut/paste bindings stay intact.
+  (setq simpleclip-copy-keystrokes (remove "s-c" simpleclip-copy-keystrokes))
+  (when (eq (lookup-key simpleclip-mode-map (kbd "s-c")) #'simpleclip-copy)
+    (define-key simpleclip-mode-map (kbd "s-c") nil))
+  ;; Enabling an already-active simpleclip mode overwrites its saved Emacs
+  ;; clipboard functions. Keep reloads idempotent for the running daemon.
+  (unless (bound-and-true-p simpleclip-mode)
+    (simpleclip-mode 1))
+  (dotfiles-clipboard-install))
 (provide 'dotfiles-clipboard)
 ;;; clipboard.el ends here

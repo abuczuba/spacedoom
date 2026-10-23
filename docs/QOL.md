@@ -33,14 +33,31 @@ do not select actions by the application in a tmux pane. `performable:` only
 tests terminal selection; a chained forwarded key would also reach shell/Codex
 panes. Preserve native terminal copying and use this Doom-native fallback.
 
-The persistent server loads the addon through cdev.el. Existing clients acquire
-it by loading only the addon once, without restarting the server or clients.
-`CDEV_EDITOR_MODE=standalone cdev PROJECT` also loads it. For a direct standalone
-invocation outside cdev, use `emacs -nw --load ~/.config/doom/clipboard.el` (or
-`M-x load-file` in an already-running standalone). No private config.el is edited.
+Normal `~/.config/doom/config.el` loads `(load! "clipboard")`, replacing its old
+two-line simpleclip initialization. **No launch flags are needed** for `emacs -nw`,
+a native Doom daemon, or cdev. All clipboard settings live in the managed
+`configs/doom/clipboard.el`: `use-package! simpleclip` owns mode initialization;
+`map!` owns SPC y. Keeping this one public settings unit separate avoids importing
+or replacing unrelated personal Doom configuration. There is no launcher loader.
 
-Independent clipboard recovery: run `M-x dotfiles-clipboard-uninstall` in Doom,
-restore only the `doom-clipboard` migration backup, then roll back its pointer
-activation to the acknowledgment release. Run the restored dashboard installer
-to repin callbacks. Persistent buffers, clients and Codex remain running. Restoring
-the backup removes only the new addon link, whose original state was absent.
+The audit found no user-defined Cmd+C override. Simpleclip supplied `s-c` in its
+own minor-mode map; the config now retires just that package override and leaves
+Emacs' global Command-key map, simpleclip cut/paste and other copy keys intact.
+Reloading does not re-enable an already-active simpleclip mode, which would
+otherwise overwrite its saved clipboard/kill-ring integration functions.
+
+The deployment tool's `configure-doom-clipboard --release RELEASE
+--expect-config-sha256 HASH --approve` backs up normal config.el privately,
+preserves its mode, and atomically replaces only the exact inspected stanza.
+It rejects drift, links, an unexpected current release and ambiguous stanzas.
+The schema-2 backup uses the existing `restore --backup ID --approve` command;
+restoration accepts only the recorded original or exact deployed contents/mode,
+is retryable, and refuses subsequent personal edits. Config.el stays a regular
+unmanaged file; private content never enters Git or copied release payloads.
+
+To reverse normalization, restore that config.el backup **before** rolling the
+release pointer back. The preceding accepted module and cdev launchers then work
+as before. For the already-running daemon, load the previous clipboard file and
+restore simpleclip's package-default s-c mapping if desired; do not restart clients.
+Exact release/backup references are in STATUS.md. Do not remove the original
+addon symlink unless reverting the entire earlier clipboard adoption separately.

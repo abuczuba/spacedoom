@@ -190,6 +190,7 @@ SHORTCUTS / TERMINAL + EDITOR
   Ctrl+X Ctrl+C closes a client frame; server buffers remain available.
   Standalone emacs -nw has separate exit behavior. Avoid daemon toggles.
   Cmd+C copies Ghostty terminal selections; Evil visual y is unchanged.
+  SPC y initializes through normal Doom config for daemon and emacs -nw.
 
 @projects / 6 / CDEV WORKSPACE
 ------------------------------------------------------------------------

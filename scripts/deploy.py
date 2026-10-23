@@ -107,6 +107,20 @@ def atomic_link(path: Path, target: str) -> None:
         temporary.unlink(missing_ok=True)
 
 
+def atomic_file(path: Path, data: bytes, mode: int) -> None:
+    temporary = path.with_name("." + path.name + "." + uuid.uuid4().hex)
+    try:
+        with temporary.open("xb") as handle:
+            os.chmod(temporary, mode)
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+        sync_dir(path.parent)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def manifest_check(value: dict) -> dict:
     if value.get("schema") != 1 or not value.get("files"):
         raise DeployError("Unsupported or empty manifest")
@@ -340,7 +354,7 @@ class Deployment:
             no_links(path, self.root)
             journal = json.loads(path.read_text())
             if journal["status"] == "migrated":
-                targets.update(item["target"] for item in journal["entries"])
+                targets.update(item["target"] for item in journal["entries"] if "replacement" not in item)
         return targets
 
     def plan(self, release: str | None = None) -> dict:
@@ -413,6 +427,63 @@ class Deployment:
                 raise DeployError(f"Live target changed after backup; recover backup {backup}")
             path.parent.mkdir(parents=True, exist_ok=True)
             atomic_link(path, self.link_target(item))
+        journal["status"] = "migrated"
+        atomic_json(directory / "backup.json", journal)
+        return backup
+
+    def configure_doom_clipboard(self, expected: str, release: str) -> str:
+        """Replace only the inspected simpleclip stanza in unmanaged config.el.
+
+        Keep personal Doom settings out of Git and releases. Use the existing
+        schema-2 transaction/restore journal, with an exact regular-file after
+        fingerprint instead of a managed symlink as its permitted replacement.
+        """
+        self.pending()
+        if self.current() != release:
+            raise DeployError("Current release changed; refusing Doom configuration edit")
+        record = self.receipt(release)
+        pointer = "releases/" + release
+        addon = next((i for i in record["manifest"]["files"] if i["target"] == ".config/doom/clipboard.el"), None)
+        if addon is None or not self.is_managed(addon):
+            raise DeployError("Clipboard addon must already be individually migrated")
+        path = self.live({"target": ".config/doom/config.el"})
+        no_links(path, self.home)
+        info = path.stat()
+        if not path.is_file() or info.st_uid != os.getuid() or info.st_nlink != 1:
+            raise DeployError("Doom config must be an owned regular file")
+        before = path.read_bytes()
+        old = b"(require 'simpleclip)\n(simpleclip-mode 1)"
+        if (digest(before) != expected or before.count(old) != 1
+                or b'(load! "clipboard")' in before):
+            raise DeployError("Doom clipboard stanza changed or is ambiguous; refusing edit")
+        after = before.replace(old, b'(load! "clipboard")', 1)
+        mode = stat.S_IMODE(info.st_mode)
+        item = dict(target=".config/doom/config.el", component="doom-clipboard-init", existed=True,
+                    sha256=digest(before), mode=mode, replacement=dict(sha256=digest(after), mode=mode))
+        backup = stamp()
+        directory = self.root / "backups" / backup
+        directory.mkdir(mode=0o700)
+        saved = directory / "files" / item["target"]
+        saved.parent.mkdir(parents=True, mode=0o700)
+        # The private backup retains every original byte and its permissions;
+        # only hashes, target and transaction metadata enter the journal.
+        shutil.copy2(path, saved)
+        if not self.original_matches(saved, item):
+            raise DeployError("Doom config backup verification failed; live file unchanged")
+        with saved.open("rb") as handle:
+            os.fsync(handle.fileno())
+        for folder in sorted(directory.rglob("*"), reverse=True):
+            if folder.is_dir():
+                sync_dir(folder)
+        journal = dict(schema=2, release=release, status="prepared", entries=[item],
+                       current_before=pointer, current_after=pointer,
+                       targets=[i["target"] for i in record["manifest"]["files"]] + [item["target"]])
+        atomic_json(directory / "backup.json", journal)
+        if self.current_target() != journal["current_before"] or not self.original_matches(path, item):
+            raise DeployError(f"Doom config or pointer changed after backup; recover backup {backup}")
+        atomic_file(path, after, mode)
+        if self.current_target() != pointer or not self.replacement_matches(path, item):
+            raise DeployError(f"Doom config verification failed; recover backup {backup}")
         journal["status"] = "migrated"
         atomic_json(directory / "backup.json", journal)
         return backup
@@ -506,6 +577,12 @@ class Deployment:
                 and digest(path.read_bytes()) == item["sha256"]
                 and stat.S_IMODE(path.stat().st_mode) == item["mode"])
 
+    def replacement_matches(self, path: Path, item: dict) -> bool:
+        after = item.get("replacement")
+        if after is None:
+            return self.is_managed(item)
+        return self.original_matches(path, dict(existed=True, **after))
+
     def restore(self, backup: str) -> None:
         directory = self.root / "backups" / identifier(backup)
         no_links(directory, self.root)
@@ -536,7 +613,7 @@ class Deployment:
                     raise DeployError("Backup content or permissions changed")
             if self.original_matches(path, item):
                 continue
-            if not self.is_managed(item):
+            if not self.replacement_matches(path, item):
                 raise DeployError(f"Live target drift; refusing restore: {path}")
             work.append((item, path, saved))
         # The old pointer is acceptable only before any migration write, or after
@@ -553,7 +630,7 @@ class Deployment:
         for item, path, saved in work:
             if self.current_target() != observed:
                 raise DeployError("Current pointer changed during restore; recovery remains pending")
-            if not self.is_managed(item):
+            if not self.replacement_matches(path, item):
                 raise DeployError("Live target changed during restore; recovery remains pending")
             if item["existed"]:
                 temporary = path.with_name("." + path.name + "." + uuid.uuid4().hex)
@@ -602,7 +679,7 @@ def main() -> int:
     plan.add_argument("--release")
     verify = subs.add_parser("verify", help="Validate a copied release without activating")
     verify.add_argument("--release", required=True)
-    for name in ("stage", "migrate", "activate", "rollback", "restore"):
+    for name in ("stage", "migrate", "activate", "rollback", "restore", "configure-doom-clipboard"):
         sub = subs.add_parser(name)
         sub.add_argument("--approve", action="store_true", help="Accident guard; user consent is still required")
         if name in {"migrate", "activate"}:
@@ -613,6 +690,9 @@ def main() -> int:
             sub.add_argument("--expect-current", required=True)
         if name == "restore":
             sub.add_argument("--backup", required=True)
+        if name == "configure-doom-clipboard":
+            sub.add_argument("--expect-config-sha256", required=True)
+            sub.add_argument("--release", required=True)
     args = parser.parse_args()
     try:
         deployment = Deployment(args.repo, args.home, args.state_root or args.home / ".local/share/dotfiles-active")
@@ -639,6 +719,8 @@ def main() -> int:
                 elif args.action == "restore":
                     deployment.restore(args.backup)
                     print("Original files and previous deployment pointer state restored")
+                elif args.action == "configure-doom-clipboard":
+                    print("Doom initialization backup: " + deployment.configure_doom_clipboard(args.expect_config_sha256, args.release))
             print("No application was reloaded or restarted")
         return 0
     except (DeployError, ValidationError, OSError, ValueError, KeyError) as exc:

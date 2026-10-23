@@ -8,3 +8,6 @@
 ;; The live config has this public frame-focus hook. Exercise it with two TTYs.
 (add-hook 'after-make-frame-functions
           (lambda (frame) (select-frame-set-input-focus frame)))
+
+;; Normal Doom initialization owns clipboard behavior for every launch method.
+(load! "clipboard")

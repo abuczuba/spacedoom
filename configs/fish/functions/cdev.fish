@@ -119,7 +119,7 @@ function __cdev_open --argument-names root session digest
                 printf 'cdev: standalone fallback requires emacs on PATH.\n' >&2
                 return 1
             end
-            set editor_command "$editor" -nw --load '@RELEASE@/doom/clipboard.el'
+            set editor_command "$editor" -nw
         case '*'
             printf 'cdev: CDEV_EDITOR_MODE must be client or standalone.\n' >&2
             return 2
