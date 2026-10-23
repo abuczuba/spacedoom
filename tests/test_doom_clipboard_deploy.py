@@ -1,6 +1,7 @@
 """Exact two-line Doom edit and schema-2 recovery, entirely in temporary homes."""
 import hashlib
 import json
+from pathlib import Path
 from unittest.mock import patch
 import unittest
 
@@ -105,3 +106,22 @@ class DoomClipboardDeployTests(unittest.TestCase):
         self.assertEqual(self.config.read_bytes(), self.after)
         self.mutate('restore', backup)
         self.assertEqual(self.config.read_bytes(), self.before)
+
+    def test_dashboard_inline_edit_preserves_comment_settings_and_restores(self):
+        self.prepare()
+        source = self.repo / 'configs/doom/dashboard-faces.el'
+        source.parent.mkdir()
+        source.write_bytes((Path(__file__).resolve().parents[1]/'configs/doom/dashboard-faces.el').read_bytes())
+        before = b"(setq doom-theme 'spacemacs-dark) ; preserve this comment\n" + self.before
+        self.config.write_bytes(before)
+        expected = hashlib.sha256(before).hexdigest()
+        backup = self.mutate('configure_doom_dashboard', expected, self.release)
+        after = before.replace(before.splitlines(keepends=True)[0],
+                               before.splitlines(keepends=True)[0] + b'\n' + source.read_bytes(), 1)
+        self.assertEqual(self.config.read_bytes(), after)
+        self.assertEqual(self.config.stat().st_mode & 0o777, 0o640)
+        with self.assertRaises(deploy.DeployError):
+            self.mutate('configure_doom_dashboard', hashlib.sha256(after).hexdigest(), self.release)
+        self.mutate('restore', backup)
+        self.mutate('restore', backup)
+        self.assertEqual(self.config.read_bytes(), before)

@@ -432,33 +432,45 @@ class Deployment:
         return backup
 
     def configure_doom_clipboard(self, expected: str, release: str) -> str:
-        """Replace only the inspected simpleclip stanza in unmanaged config.el.
+        return self._configure_doom(expected, release, b"(require 'simpleclip)\n(simpleclip-mode 1)",
+                                    b'(load! "clipboard")', "doom-clipboard-init")
 
-        Keep personal Doom settings out of Git and releases. Use the existing
-        schema-2 transaction/restore journal, with an exact regular-file after
-        fingerprint instead of a managed symlink as its permitted replacement.
-        """
+    def configure_doom_dashboard(self, expected: str, release: str) -> str:
+        """Insert the public face snippet inline; it is not a runtime include."""
+        path = self.live({"target": ".config/doom/config.el"})
+        no_links(path, self.home)
+        before = path.read_bytes()
+        anchors = re.findall(rb"(?m)^\(setq doom-theme 'spacemacs-dark\)[^\n]*\n", before)
+        if len(anchors) != 1 or b"(+dashboard-banner +dashboard-loaded)" in before:
+            raise DeployError("Dashboard theme stanza changed or is already customized; refusing edit")
+        source = self.repo / "configs/doom/dashboard-faces.el"
+        no_links(source, self.repo)
+        snippet = source.read_bytes()
+        return self._configure_doom(expected, release, anchors[0], anchors[0] + b"\n" + snippet,
+                                    "doom-dashboard-faces")
+
+    def _configure_doom(self, expected: str, release: str, old: bytes, new: bytes, component: str) -> str:
+        """Exact config.el edit using the existing schema-2 backup/restore journal."""
         self.pending()
         if self.current() != release:
             raise DeployError("Current release changed; refusing Doom configuration edit")
         record = self.receipt(release)
         pointer = "releases/" + release
-        addon = next((i for i in record["manifest"]["files"] if i["target"] == ".config/doom/clipboard.el"), None)
-        if addon is None or not self.is_managed(addon):
-            raise DeployError("Clipboard addon must already be individually migrated")
+        if component == "doom-clipboard-init":
+            addon = next((i for i in record["manifest"]["files"] if i["target"] == ".config/doom/clipboard.el"), None)
+            if addon is None or not self.is_managed(addon):
+                raise DeployError("Clipboard addon must already be individually migrated")
         path = self.live({"target": ".config/doom/config.el"})
         no_links(path, self.home)
         info = path.stat()
         if not path.is_file() or info.st_uid != os.getuid() or info.st_nlink != 1:
             raise DeployError("Doom config must be an owned regular file")
         before = path.read_bytes()
-        old = b"(require 'simpleclip)\n(simpleclip-mode 1)"
-        if (digest(before) != expected or before.count(old) != 1
-                or b'(load! "clipboard")' in before):
-            raise DeployError("Doom clipboard stanza changed or is ambiguous; refusing edit")
-        after = before.replace(old, b'(load! "clipboard")', 1)
+        if digest(before) != expected or before.count(old) != 1 or new in before:
+            raise DeployError("Doom configuration stanza changed or is ambiguous; refusing edit")
+        after = before.replace(old, new, 1)
         mode = stat.S_IMODE(info.st_mode)
-        item = dict(target=".config/doom/config.el", component="doom-clipboard-init", existed=True,
+        item = dict(target=".config/doom/config.el", component=component, existed=True,
                     sha256=digest(before), mode=mode, replacement=dict(sha256=digest(after), mode=mode))
         backup = stamp()
         directory = self.root / "backups" / backup
@@ -679,7 +691,7 @@ def main() -> int:
     plan.add_argument("--release")
     verify = subs.add_parser("verify", help="Validate a copied release without activating")
     verify.add_argument("--release", required=True)
-    for name in ("stage", "migrate", "activate", "rollback", "restore", "configure-doom-clipboard"):
+    for name in ("stage", "migrate", "activate", "rollback", "restore", "configure-doom-clipboard", "configure-doom-dashboard"):
         sub = subs.add_parser(name)
         sub.add_argument("--approve", action="store_true", help="Accident guard; user consent is still required")
         if name in {"migrate", "activate"}:
@@ -690,7 +702,7 @@ def main() -> int:
             sub.add_argument("--expect-current", required=True)
         if name == "restore":
             sub.add_argument("--backup", required=True)
-        if name == "configure-doom-clipboard":
+        if name.startswith("configure-doom-"):
             sub.add_argument("--expect-config-sha256", required=True)
             sub.add_argument("--release", required=True)
     args = parser.parse_args()
@@ -721,6 +733,8 @@ def main() -> int:
                     print("Original files and previous deployment pointer state restored")
                 elif args.action == "configure-doom-clipboard":
                     print("Doom initialization backup: " + deployment.configure_doom_clipboard(args.expect_config_sha256, args.release))
+                elif args.action == "configure-doom-dashboard":
+                    print("Doom appearance backup: " + deployment.configure_doom_dashboard(args.expect_config_sha256, args.release))
             print("No application was reloaded or restarted")
         return 0
     except (DeployError, ValidationError, OSError, ValueError, KeyError) as exc:

@@ -61,3 +61,21 @@ as before. For the already-running daemon, load the previous clipboard file and
 restore simpleclip's package-default s-c mapping if desired; do not restart clients.
 Exact release/backup references are in STATUS.md. Do not remove the original
 addon symlink unless reverting the entire earlier clipboard adoption separately.
+
+The Doom banner/loaded rectangle came from `+dashboard-banner` and
+`+dashboard-loaded` inheriting the comment face's explicit background while
+Solaire remaps the dashboard's default background. A six-line face customization
+from `configs/doom/dashboard-faces.el` is copied **inline into normal config.el**,
+not loaded as another module. It preserves the theme's cyan foreground and
+leaves the background unspecified with no comment-face parent, allowing the
+[buffer background to show](https://www.gnu.org/software/emacs/manual/html_node/elisp/Face-Attributes.html).
+Global theme/comment faces, Solaire, widgets and ASCII art stay unchanged.
+The `configure-doom-dashboard` command uses the same guarded config backup and
+restore journal; it does not change any managed release payload or active pointer.
+
+Source Code Pro currently resolves in AppKit, a private invisible Emacs NS frame,
+and Doom's normal font initializer in an invisible NS frame (default/fixed/
+variable faces all select Source Code Pro). The historical font-resolution error
+was not reproduced; its original cause is unestablished. Ghostty's terminal font
+rendering uses its own font system. No font settings, installations or packages
+were changed. Interactive graphical appearance remains a physical check.

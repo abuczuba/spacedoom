@@ -24,7 +24,7 @@ REPO = Path(__file__).resolve().parents[1]
 
 
 class DoomHarness:
-    def __init__(self):
+    def __init__(self, dashboard_faces=False):
         self.temp = tempfile.TemporaryDirectory(prefix="df-doom-", dir="/private/tmp")
         self.root = Path(self.temp.name).resolve()
         self.home = self.root / "home"
@@ -54,7 +54,10 @@ class DoomHarness:
         private.mkdir(parents=True)
         # The installed, inspected module selection has no private data.
         private.joinpath("init.el").write_bytes((REPO / "tests/fixtures/doom-init.el").read_bytes())
-        private.joinpath("config.el").write_bytes((REPO / "tests/fixtures/doom-config.el").read_bytes())
+        config = (REPO / "tests/fixtures/doom-config.el").read_bytes()
+        if dashboard_faces:
+            config += b"\n" + (REPO / "configs/doom/dashboard-faces.el").read_bytes()
+        private.joinpath("config.el").write_bytes(config)
         private.joinpath("clipboard.el").write_bytes((REPO / "configs/doom/clipboard.el").read_bytes())
         self.env = os.environ.copy()
         for key in ["TMUX", "TMUX_PANE", "DOOMPROFILE", "DOOMPROFILELOADFILE", "EMACSDIR",
