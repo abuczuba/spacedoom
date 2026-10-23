@@ -152,6 +152,8 @@ class CdevIntegration(unittest.TestCase):
         self.assertEqual(before, (h.snapshot(), h.log()))
         self.assert_ok(h.fish("CDEV_EDITOR_MODE=standalone cdev " + shlex.quote(str(root)), env=env))
         self.assertIn("|27.0|-nw", Path(h.env["CDEV_TEST_EDITOR_LOG"]).read_text())
+        self.assertIn("--load " + str(h.release / "doom/clipboard.el"),
+                      Path(h.env["CDEV_TEST_EDITOR_LOG"]).read_text())
 
     def test_failed_agent_is_visible_never_retried_and_existing_panes_survive(self):
         h = self.h

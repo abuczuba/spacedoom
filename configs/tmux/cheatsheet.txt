@@ -172,6 +172,7 @@ SHORTCUTS / TERMINAL + EDITOR
   SPC w h/j/k/l              | Move between Emacs windows
   SPC w v / SPC w s          | Emacs split right / below
   SPC w q                    | Close Emacs window
+  Visual selection; SPC y    | Copy to macOS clipboard; keep kill ring
   SPC g g                    | Magit status
   Alt+X org-agenda           | Open agenda by command name
   Alt+X org-capture          | Open capture by command name
@@ -188,6 +189,7 @@ SHORTCUTS / TERMINAL + EDITOR
   In cdev client frames, SPC f f starts at that frame's project root.
   Ctrl+X Ctrl+C closes a client frame; server buffers remain available.
   Standalone emacs -nw has separate exit behavior. Avoid daemon toggles.
+  Cmd+C copies Ghostty terminal selections; Evil visual y is unchanged.
 
 @projects / 6 / CDEV WORKSPACE
 ------------------------------------------------------------------------

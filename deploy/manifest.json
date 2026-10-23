@@ -112,7 +112,8 @@
       "syntax": "fish",
       "references": [
         "cdev/codex_session.py",
-        "cdev/doom-server.py"
+        "cdev/doom-server.py",
+        "doom/clipboard.el"
       ]
     },
     {
@@ -140,6 +141,16 @@
       "path": "doom/cdev.el",
       "target": ".config/doom/cdev.el",
       "component": "doom-client",
+      "syntax": "elisp",
+      "references": [
+        "doom/clipboard.el"
+      ]
+    },
+    {
+      "source": "configs/doom/clipboard.el",
+      "path": "doom/clipboard.el",
+      "target": ".config/doom/clipboard.el",
+      "component": "doom-clipboard",
       "syntax": "elisp",
       "references": []
     },

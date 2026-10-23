@@ -97,16 +97,12 @@ class DoomHarness:
     def data(self, expression):
         return json.loads(json.loads(self.request("(json-encode " + expression + ")").stdout))
 
-    def connect(self, root):
-        parameters = "((cdev-project-root . " + json.dumps(str(root)) + "))"
+    def terminal(self, root, command):
         child, fd = pty.fork()
         if child == 0:
             os.chdir(root)
-            command = ["/opt/homebrew/bin/emacsclient", "-s", str(self.socket), "-a", "/usr/bin/false",
-                       "-t", "--frame-parameters=" + parameters]
             os.execve(command[0], command, self.env)
         self.clients.append((child, fd))
-        self.frame_clients[str(root)] = (child, fd)
         def drain():
             while not self.stop.is_set():
                 try:
@@ -123,6 +119,29 @@ class DoomHarness:
                 except OSError:
                     return
         threading.Thread(target=drain, daemon=True).start()
+        return child, fd
+
+    def start_standalone(self, root):
+        # Same sanitized Doom startup, but a real -nw process rather than a
+        # daemon/client. The private server is only an observation/control path.
+        expression = "(progn (require 'server) (setq server-name " + json.dumps(str(self.socket)) + ") (server-start))"
+        child, fd = self.terminal(root, ["/opt/homebrew/bin/emacs", "--init-directory", str(self.emacs_dir),
+                                       "-nw", "--load", str(REPO / "configs/doom/clipboard.el"),
+                                       "--eval", expression])
+        until = time.monotonic() + 35
+        while time.monotonic() < until:
+            if self.socket.exists():
+                result = self.request("(featurep 'dotfiles-clipboard)", check=False)
+                if result.returncode == 0 and result.stdout.strip() == "t":
+                    return child, fd
+            time.sleep(.1)
+        raise AssertionError("disposable standalone Doom did not initialize")
+
+    def connect(self, root):
+        parameters = "((cdev-project-root . " + json.dumps(str(root)) + "))"
+        child, fd = self.terminal(root, ["/opt/homebrew/bin/emacsclient", "-s", str(self.socket), "-a", "/usr/bin/false",
+                                       "-t", "--frame-parameters=" + parameters])
+        self.frame_clients[str(root)] = (child, fd)
         until = time.monotonic() + 10
         while time.monotonic() < until:
             if self.data("(length (cl-remove-if-not (lambda (f) (equal (frame-parameter f 'cdev-project-root) "

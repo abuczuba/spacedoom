@@ -51,5 +51,7 @@ Absolute paths and explicit parent-directory navigation remain available."
 (map! :leader :desc "Find file from this project's root"
       "f f" #'dotfiles/cdev-find-file)
 
+(load (expand-file-name "clipboard.el" (file-name-directory load-file-name)) nil nil t)
+
 (provide 'dotfiles-cdev)
 ;;; cdev.el ends here

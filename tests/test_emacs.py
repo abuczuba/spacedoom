@@ -122,6 +122,11 @@ class DoomIntegration(unittest.TestCase):
         title_slot = h.tm("show-options", "-gqv", "@tmux-dotbar-window-status-format").strip()
         h.tm("set-option", "-g", "window-status-format", title_slot)
         h.tm("set-option", "-g", "window-status-current-format", title_slot)
+        # Startup moved after the theme in 3c99050; sourcing the title-only
+        # include no longer installs a monitor by itself.
+        subprocess.run(["/usr/bin/python3", "-B", str(h.release / "tmux/agent-dashboard.py"),
+                        "bootstrap", "--socket", h.socket], env=h.env, check=True,
+                       capture_output=True, text=True, timeout=10)
         roots = [h.repo("combined-a"), h.repo("combined-b")]
         for root in roots:
             result = h.cdev(root)
