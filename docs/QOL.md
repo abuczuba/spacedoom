@@ -64,12 +64,16 @@ addon symlink unless reverting the entire earlier clipboard adoption separately.
 
 The Doom banner/loaded rectangle came from `+dashboard-banner` and
 `+dashboard-loaded` inheriting the comment face's explicit background while
-Solaire remaps the dashboard's default background. A six-line face customization
+Solaire remaps the dashboard's default background. The desired color is that
+**original lighter charcoal**, not the darker surrounding field. Configuration
 from `configs/doom/dashboard-faces.el` is copied **inline into normal config.el**,
-not loaded as another module. It preserves the theme's cyan foreground and
-leaves the background unspecified with no comment-face parent, allowing the
-[buffer background to show](https://www.gnu.org/software/emacs/manual/html_node/elisp/Face-Attributes.html).
-Global theme/comment faces, Solaire, widgets and ASCII art stay unchanged.
+not loaded as another module. It remaps only the dashboard buffer's default and
+fringe backgrounds to the original comment-face background (verified #262626 in
+the live terminal; derived from the theme, never a screenshot estimate).
+Original banner/loaded inheritance and cyan are retained. Solaire stays enabled;
+the dashboard-local remap is reapplied after its remapping and theme changes.
+Menus, typography, ASCII/layout, global faces and non-dashboard buffers stay as
+before. This corrects 9550d3a, which incorrectly removed the desirable lighter field.
 The `configure-doom-dashboard` command uses the same guarded config backup and
 restore journal; it does not change any managed release payload or active pointer.
 

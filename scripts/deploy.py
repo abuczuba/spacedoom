@@ -440,12 +440,22 @@ class Deployment:
         path = self.live({"target": ".config/doom/config.el"})
         no_links(path, self.home)
         before = path.read_bytes()
-        anchors = re.findall(rb"(?m)^\(setq doom-theme 'spacemacs-dark\)[^\n]*\n", before)
-        if len(anchors) != 1 or b"(+dashboard-banner +dashboard-loaded)" in before:
-            raise DeployError("Dashboard theme stanza changed or is already customized; refusing edit")
         source = self.repo / "configs/doom/dashboard-faces.el"
         no_links(source, self.repo)
         snippet = source.read_bytes()
+        previous = b""";; Dashboard text uses the buffer background, including Solaire's remapping.
+(custom-set-faces!
+  `((+dashboard-banner +dashboard-loaded)
+    :inherit nil
+    :background unspecified
+    :foreground ,(face-foreground 'font-lock-comment-face nil t)))
+"""
+        if before.count(previous) == 1:
+            return self._configure_doom(expected, release, previous, snippet, "doom-dashboard-faces")
+        anchors = re.findall(rb"(?m)^\(setq doom-theme 'spacemacs-dark\)[^\n]*\n", before)
+        if (len(anchors) != 1 or b"(+dashboard-banner +dashboard-loaded)" in before
+                or b"dotfiles-dashboard-background-h" in before):
+            raise DeployError("Dashboard theme stanza changed or is already customized; refusing edit")
         return self._configure_doom(expected, release, anchors[0], anchors[0] + b"\n" + snippet,
                                     "doom-dashboard-faces")
 

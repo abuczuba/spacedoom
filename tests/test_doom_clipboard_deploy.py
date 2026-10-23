@@ -1,6 +1,7 @@
 """Exact two-line Doom edit and schema-2 recovery, entirely in temporary homes."""
 import hashlib
 import json
+import subprocess
 from pathlib import Path
 from unittest.mock import patch
 import unittest
@@ -123,5 +124,20 @@ class DoomClipboardDeployTests(unittest.TestCase):
         with self.assertRaises(deploy.DeployError):
             self.mutate('configure_doom_dashboard', hashlib.sha256(after).hexdigest(), self.release)
         self.mutate('restore', backup)
+        self.mutate('restore', backup)
+        self.assertEqual(self.config.read_bytes(), before)
+
+    def test_dashboard_corrects_9550d3a_without_changing_other_config(self):
+        self.prepare()
+        repo = Path(__file__).resolve().parents[1]
+        source = self.repo / 'configs/doom/dashboard-faces.el'
+        source.parent.mkdir()
+        source.write_bytes((repo/'configs/doom/dashboard-faces.el').read_bytes())
+        previous = subprocess.check_output(['git', 'show', '9550d3a:configs/doom/dashboard-faces.el'], cwd=repo)
+        before = b"(setq doom-theme 'spacemacs-dark)\n\n" + previous + self.before
+        self.config.write_bytes(before)
+        backup = self.mutate('configure_doom_dashboard', hashlib.sha256(before).hexdigest(), self.release)
+        self.assertEqual(self.config.read_bytes(), before.replace(previous, source.read_bytes(), 1))
+        self.assertEqual(self.config.stat().st_mode & 0o777, 0o640)
         self.mutate('restore', backup)
         self.assertEqual(self.config.read_bytes(), before)
