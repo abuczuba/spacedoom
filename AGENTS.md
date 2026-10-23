@@ -64,9 +64,10 @@ Explicit, operation-specific user approval is required for:
   or services; destructive operations; work outside this project's scope.
 - Changing Git remotes/configuration, pushing or publishing.
 
-Approval for editing, a commit, staging, migration, activation, rollback or reload
-does not approve another operation. A tool's `--approve` flag is an accident
-guard, **not evidence of user consent**. Never auto-deploy/reload from Git hooks,
+Approval covers only the operations explicitly included. A consolidated user
+approval may cover implementation, commit, staging and deployment together;
+continue those authorized steps without routine confirmation. A tool's `--approve`
+flag is an accident guard, **not evidence of user consent**. Never auto-deploy/reload from Git hooks,
 shell startup, tests, background jobs or an agent finishing its task. These rules
 supplement actual Codex sandbox/approval enforcement; do not weaken or bypass it.
 
@@ -100,12 +101,17 @@ any release, backup, migration, activation or reload operation.
    rebased startup COPIES and a sanitized private configuration. Test dashboard
    and editor reversibility independently, then their interaction. Baseline
    existing configuration before edits; never test on production main panes.
+   For routine reversible repairs, run focused tests covering changed behavior
+   and nearby regressions. Run the full suite only for cross-cutting changes,
+   relevant failures or an explicit requirement. Avoid repetitive audits and
+   elaborate reports; record the useful evidence once.
 3. Review/stage the intended files, run preflight and staged whitespace checks,
    inspect the staged diff, then make the authorized local commit. Never bypass a
    failed hook or silently disable signing.
 4. For deployment, show the exact candidate release, all currently managed paths
    affected by the shared pointer, dependency/drift checks, backups, failure plan,
-   rollback target and reload effects. Obtain the approval for that operation.
+   rollback target and reload effects. Proceed if that operation is already
+   explicitly authorized; ask only at a new boundary or unexpected material drift.
 5. Initial migration backs up each exact target outside this repo, preserving
    content and modes, before any live replacement. Multiple path replacements
    are not jointly atomic. An interrupted migration requires explicit recovery.

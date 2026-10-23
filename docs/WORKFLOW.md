@@ -17,13 +17,18 @@ may point into the checkout. No automatic deployment or reload is allowed.
    needed, without broad home scans, private data, or unrelated repositories.
 2. Edit development copies. Preserve unrelated bindings, startup, theme and jobs.
    Imported tmux includes/popup commands use the `@RELEASE@` template token.
-3. Run unit tests and applicable integration checks. Integration servers always
+3. For routine reversible repairs, run focused tests for the changed behavior
+   and nearby regressions. Use the full suite for cross-cutting changes, relevant
+   failures or an explicit request. Integration servers always
    have private sockets, `-f /dev/null`, inert test panes and owned-session cleanup.
    User plugin code is not executed. Parser success is not live UX acceptance.
 4. Review and stage intended files; run `python3 scripts/preflight.py`,
    `git diff --cached --check`, and inspect `git diff --cached`. Local commits are
    authorized; honor current signing settings. A commit performs no deployment.
-5. Maintain status, test evidence and the next single action.
+5. Maintain a brief status and useful test/recovery evidence. Preserve concurrent
+   edits; avoid repeated audits or elaborate reports. A consolidated approval
+   covers the operations it explicitly names: continue successful authorized
+   steps without seeking routine confirmation, stopping at genuine new boundaries.
 
 Commands below use POSIX sh/Zsh syntax (also valid as individual Fish commands).
 Mutation examples are instructions for future approved operations, not authority

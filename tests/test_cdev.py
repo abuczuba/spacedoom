@@ -100,13 +100,17 @@ class CdevIntegration(unittest.TestCase):
         h.tm("set-option", "-w", "-t", window, "@cdev_root", str(root))
         self.reject_unchanged(root, "mixed or unverifiable")
 
-    def test_conversation_resume_last_pin_and_fail_closed_metadata(self):
+    def test_exact_conversation_pin_and_fail_closed_metadata(self):
         h = self.h
         root = h.repo("restore")
         first = h.saved(root)
-        h.saved(root)
         self.assert_ok(h.cdev(root))
-        self.assertEqual(h.log()[-1][1:5], ["resume", "--last", "--cd", str(root)])
+        self.assertEqual(h.log()[-1][1:5], ["resume", first, "--cd", str(root)])
+        h.tm("kill-window", "-t", h.window(root))
+        h.saved(root)
+        # Once selected, a newer conversation cannot change the project's pin.
+        self.assert_ok(h.cdev(root))
+        self.assertEqual(h.log()[-1][2], first)
         h.tm("kill-window", "-t", h.window(root))
         self.assert_ok(h.fish("cdev-pin " + first + " " + shlex.quote(str(root))))
         pinfile = Path(h.env["XDG_STATE_HOME"]) / "cdev/pins.json"
@@ -127,12 +131,14 @@ class CdevIntegration(unittest.TestCase):
         nested = h.repo("nested-history")
         (nested / "inside").mkdir()
         identity = h.saved(nested, nested / "inside")
-        self.reject_unchanged(nested, "subdirectory")
-        self.assert_ok(h.fish("cdev-pin " + identity + " " + shlex.quote(str(nested))))
         self.assert_ok(h.cdev(nested))
         self.assertEqual(h.log()[-1][2], identity)
+        ambiguous = h.repo("ambiguous-history")
+        h.saved(ambiguous)
+        h.saved(ambiguous)
+        self.reject_unchanged(ambiguous, "ambiguous project history")
         for launch in h.log():
-            self.assertFalse(set(launch) & {"--all", "--sandbox", "--ask-for-approval", "--no-daemon",
+            self.assertFalse(set(launch) & {"--last", "--all", "--sandbox", "--ask-for-approval", "--no-daemon",
                                           "--dangerously-bypass-hook-trust", "--dangerously-bypass-approvals-and-sandbox"})
 
     def test_unavailable_daemon_and_explicit_standalone_fallback(self):
@@ -199,9 +205,11 @@ class CdevIntegration(unittest.TestCase):
         for name in ["codex_session.py", "activity.py"]:
             (installed / name).symlink_to(h.release / "cdev" / name)
         root = h.repo("legacy-standalone")
+        identity = h.saved(root)
         self.assert_ok(h.fish("source " + shlex.quote(str(fixture)) + "; cdev " + shlex.quote(str(root))))
         self.assertIn("|27.0|-nw", Path(h.env["CDEV_TEST_EDITOR_LOG"]).read_text())
         args = h.log()[-1]
+        self.assertEqual(args[1:5], ["resume", identity, "--cd", str(root)])
         hook = next(value for value in args if value.startswith("hooks.UserPromptSubmit="))
         command = json.JSONDecoder().raw_decode(hook.split("command=", 1)[1])[0]
         self.assertIn(str(installed / "activity.py"), command)
