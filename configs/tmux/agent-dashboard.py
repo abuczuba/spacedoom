@@ -10,6 +10,7 @@ import argparse
 from contextlib import contextmanager
 import fcntl
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -123,12 +124,13 @@ def own_observable(record, pane, socket, boot, now):
 
 
 class Dashboard:
-    def __init__(self, socket, state=None, ghostty_config=None):
+    def __init__(self, socket, state=None, ghostty_config=None, pager_config=None):
         if not Path(socket).is_absolute():
             raise ValueError("an absolute, explicit tmux socket is required")
         self.socket = socket
         self.state = Path(state or os.environ.get("XDG_STATE_HOME") or Path.home() / ".local/state")
         self.ghostty = Path(ghostty_config or Path.home() / ".config/ghostty/config.ghostty")
+        self.pager_config = Path(pager_config) if pager_config else None
         self.env = os.environ.copy()
         self.env.pop("TMUX", None)
         self.env.pop("TMUX_PANE", None)
@@ -167,21 +169,24 @@ class Dashboard:
         now = int(time.time()) if now is None else now
         boot = self.tm("display-message", "-p", "#{start_time}:#{pid}")
         fields = ["session_id", "window_id", "window_index", "pane_id", "pane_pid",
-                  "pane_dead", "pane_current_command", "@workmux_pane_status", "@dotfiles-agent-evidence"]
+                  "pane_dead", "pane_current_command", "@workmux_pane_status", "@dotfiles-agent-evidence", "@cdev_root"]
         rows = self.tm("list-panes", "-a", "-F", "\t".join("#{" + x + "}" for x in fields))
         result = []
         for row in rows.splitlines():
             values = row.split("\t")
             if len(values) != len(fields):
                 continue
-            pane = dict(zip(["session", "window", "index", "pane", "pid", "dead", "command", "raw", "own"], values))
+            pane = dict(zip(["session", "window", "index", "pane", "pid", "dead", "command", "raw", "own", "project_dir"], values))
             if pane["own"]:
                 name = hashlib.sha256(self.socket.encode()).hexdigest() + "-" + pane["pane"][1:] + ".json"
                 try:
                     record = private_json(self.state / "dotfiles-dashboard" / name)
                     state = own_observable(record, pane, self.socket, boot, now)
                     if state:
-                        result.append(pane | {"state": state, "stamp": record["stamp"]})
+                        tracking = hashlib.sha256(json.dumps([boot, self.socket, pane["pane"], pane["pid"],
+                                                               record["token"], record["session"]]).encode()).hexdigest()
+                        result.append(pane | {"state": state, "stamp": record["stamp"], "track_id": tracking,
+                                              "turn": record["turn"], "revision": record["sequence"]})
                     continue  # A registered cdev launch owns its own evidence.
                 except (OSError, ValueError, TypeError, KeyError):
                     continue
@@ -194,8 +199,23 @@ class Dashboard:
             except (OSError, ValueError, TypeError, KeyError):
                 continue
             if state:
-                result.append(pane | {"state": state, "stamp": record["status_ts"]})
+                tracking = hashlib.sha256(json.dumps([boot, self.socket, pane["pane"], pane["pid"],
+                                                       record["agent_session_id"]]).encode()).hexdigest()
+                result.append(pane | {"state": state, "stamp": record["status_ts"], "track_id": tracking,
+                                      "turn": None, "revision": record["status_ts"],
+                                      "project_dir": pane["project_dir"] or record.get("workdir")})
         return result
+
+    def notify(self, observed):
+        if self.pager_config is None:
+            return  # No publisher import or extra work for an unconfigured monitor.
+        try:
+            spec = importlib.util.spec_from_file_location("dotfiles_pager", Path(__file__).with_name("pager.py"))
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            module.Publisher(self.state, self.socket, self.pager_config).observe(observed)
+        except (ImportError, OSError, ValueError, RuntimeError, TypeError, KeyError, subprocess.SubprocessError):
+            pass  # Pager failure never controls rendering, hooks or Codex.
 
     def refresh(self):
         with self.locked():
@@ -233,6 +253,7 @@ class Dashboard:
                 interval = "1" if any(p["state"] == "working" for p in observed) else previous
                 if interval != self.tm("show-options", "-gqv", "status-interval"):
                     self.tm("set-option", "-g", "status-interval", interval)
+        self.notify(observed)  # HTTP runs only in the detached finite worker.
 
     def navigation_ready(self):
         try:
@@ -258,6 +279,10 @@ class Dashboard:
                    + " --state " + shlex.quote(str(self.state)) + " --quiet")
         installer = ("python3 -B " + shlex.quote(script) + " watch --socket " + shlex.quote(self.socket)
                      + " --state " + shlex.quote(str(self.state)) + " --ghostty-config " + shlex.quote(str(self.ghostty)) + " --quiet")
+        if self.pager_config is not None:
+            option = " --pager-config " + shlex.quote(str(self.pager_config))
+            command += option
+            installer += option
         self.tm("set-hook", "-g", "session-created[882]", "run-shell -b " + shlex.quote(installer))
         if not self.tm("show-options", "-gqv", "@dotfiles-status-interval-before"):
             self.tm("set-option", "-g", "@dotfiles-status-interval-before", self.tm("show-options", "-gqv", "status-interval"))
@@ -382,6 +407,7 @@ def main():
     parser.add_argument("--state")
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--ghostty-config")
+    parser.add_argument("--pager-config", help="Explicit private publisher config; omitted means no notifications")
     parser.add_argument("--display-only", action="store_true", help="Preflight display/legacy navigation without enabling attention")
     args = parser.parse_args()
     if args.action == "preview":
@@ -389,7 +415,7 @@ def main():
             print(state + ": " + title_format("project-codex", state))
         return
     try:
-        dashboard = Dashboard(args.socket or "", args.state, args.ghostty_config)
+        dashboard = Dashboard(args.socket or "", args.state, args.ghostty_config, args.pager_config)
         if args.action == "attention":
             dashboard.attention(args.session or "")
         elif args.action == "preflight":

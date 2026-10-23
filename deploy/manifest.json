@@ -74,8 +74,17 @@
       "component": "tmux-dashboard",
       "syntax": "python",
       "references": [
-        "ghostty/config.ghostty"
+        "ghostty/config.ghostty",
+        "tmux/pager.py"
       ]
+    },
+    {
+      "source": "configs/tmux/pager.py",
+      "path": "tmux/pager.py",
+      "target": ".config/tmux/pager.py",
+      "component": "tmux-pager",
+      "syntax": "python",
+      "references": []
     },
     {
       "source": "configs/cdev/codex_session.py",
