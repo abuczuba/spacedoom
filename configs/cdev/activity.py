@@ -24,6 +24,9 @@ import uuid
 EVENTS = ("SessionStart", "UserPromptSubmit", "PreToolUse", "PermissionRequest",
           "PostToolUse", "Stop", "Interrupt", "SessionEnd")
 CONTEXT_ENV = "CDEV_ACTIVITY_CONTEXT"
+# A shared server does not inherit its attaching terminal's environment. This
+# account-private rendezvous is independent of either process's XDG variables.
+REMOTE_DIRECTORY = Path("/private/tmp") / ("dotfiles-cdev-" + str(os.getuid()))
 
 
 def process_identity(pid):
@@ -58,14 +61,24 @@ def runtime_context():
 def verified_origin(context, record):
     """Fail closed if a shared server inherited another terminal's context.
 
-Both the registered Codex child and its cdev launcher must be live ancestors
-with unchanged start identities. TMUX, cwd and payload text are never selectors.
+Local hooks require the registered child/launcher ancestry. Remote hooks require
+the kernel-identified backend ancestry plus the still-live child/launcher pair;
+their exact session UUID is checked separately. Cwd and window numbers never
+select a launch.
 """
     if (record.get("pid") != context["pid"] or record.get("started") != context["started"]
             or record.get("socket") != context["socket"] or record.get("pane") != context["pane"]
             or record.get("token") != context["token"] or record.get("ended")
             or type(record.get("child")) is not int or not record.get("child_started")):
         return False
+    remote = record.get("remote_session")
+    if remote:
+        launcher = process_identity(record["pid"])
+        child = process_identity(record["child"])
+        if (launcher["started"] != record["started"]
+                or child["started"] != record["child_started"]
+                or child["parent"] != record["pid"] or child["command"] not in {"codex", "codex-cli"}):
+            return False
     child_seen = False
     pid = os.getppid()
     visited = set()
@@ -74,6 +87,9 @@ with unchanged start identities. TMUX, cwd and payload text are never selectors.
             return False
         visited.add(pid)
         identity = process_identity(pid)
+        if remote and pid == record.get("backend"):
+            return (identity["started"] == record.get("backend_started")
+                    and identity["command"] in {"codex", "codex-cli"})
         if pid == context["pid"]:
             return child_seen and identity["started"] == context["started"]
         if pid == record["child"]:
@@ -84,6 +100,57 @@ with unchanged start identities. TMUX, cwd and payload text are never selectors.
             return False  # A nested or unrelated Codex is not the registered CLI.
         pid = identity["parent"]
     return False
+
+
+def remote_path(session):
+    # Payload data selects only a canonical UUID filename, never shell code or
+    # an arbitrary path. The registration itself is written by the launcher.
+    if not isinstance(session, str) or str(uuid.UUID(session)) != session:
+        raise ValueError("canonical remote session UUID required")
+    path = REMOTE_DIRECTORY
+    if any(p.is_symlink() for p in (path, *path.parents)):
+        raise ValueError("symlinked remote activity directory")
+    if path.exists():
+        info = path.stat()
+        if not path.is_dir() or info.st_uid != os.getuid() or info.st_mode & 0o077:
+            raise ValueError("remote activity directory must be private")
+    return path / (session + ".json")
+
+
+@contextmanager
+def remote_lock():
+    REMOTE_DIRECTORY.mkdir(mode=0o700, exist_ok=True)
+    # Validate after creation too; never chmod or adopt an unexpected directory.
+    remote_path("00000000-0000-0000-0000-000000000000")
+    fd = os.open(REMOTE_DIRECTORY / "registry.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, "a") as stream:
+        info = os.fstat(stream.fileno())
+        if info.st_uid != os.getuid() or info.st_mode & 0o077 or info.st_nlink != 1:
+            raise ValueError("untrusted remote activity lock")
+        fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        yield
+
+
+def remote_context(payload):
+    try:
+        row = private_record(remote_path(payload.get("session_id")))
+    except FileNotFoundError:
+        return None
+    except ValueError:
+        return None  # Non-UUID local fixture/session identifiers cannot select a file.
+    return None if row.get("ended") else row.get("context")
+
+
+def remember_remote(record):
+    if not record.get("remote_session"):
+        return
+    with remote_lock():
+        path = remote_path(record["remote_session"])
+        row = private_record(path)
+        if row.get("context", {}).get("token") != record["token"]:
+            return
+        row.update(ended=record["ended"], last_turn=record.get("turn"), retired=record.get("retired", []))
+        save(path, row)
 
 
 def tmux(socket, *args):
@@ -243,6 +310,37 @@ class Launch:
         value = '[{hooks=[{type="command",command=' + json.dumps(command) + ',timeout=2}]}]'
         return [item for event in EVENTS for item in ["-c", "hooks." + event + "=" + value]]
 
+    def definition_config(self, adapter):
+        command = shlex.join(["/usr/bin/python3", "-B", str(Path(adapter).absolute()), "event"])
+        return {"hooks." + event: [{"hooks": [{"type": "command", "command": command, "timeout": 2}]}]
+                for event in EVENTS}
+
+    def remote(self, session, backend):
+        path = remote_path(session)
+        identity = process_identity(backend)
+        if identity["command"] not in {"codex", "codex-cli"}:
+            raise ValueError("remote hook peer is not Codex")
+        with remote_lock():
+            retired = []
+            if path.exists():
+                previous = private_record(path)
+                context = previous.get("context", {})
+                try:
+                    live = process_identity(context["pid"])["started"] == context["started"]
+                except (OSError, ValueError, KeyError):
+                    live = False
+                if live and not previous.get("ended"):
+                    raise ValueError("remote conversation already has a live cdev registration")
+                retired = (previous.get("retired", []) + [previous.get("last_turn")])[-64:]
+                retired = [turn for turn in retired if isinstance(turn, str)]
+            with lock(self.state, self.socket):
+                row = private_record(self.path)
+                row.update(remote_session=session, backend=backend, backend_started=identity["started"],
+                           retired=retired)
+                save(self.path, row)
+            save(path, {"context": json.loads(self.environment()[CONTEXT_ENV]), "ended": False,
+                        "last_turn": None, "retired": retired})
+
     def environment(self):
         context = dict(version=1, state=self.state, socket=self.socket, pane=self.pane,
                        token=self.token, pid=os.getpid(), started=self.started)
@@ -269,6 +367,7 @@ class Launch:
             data.update(ended=True, state="idle", stamp=int(time.time()), sequence=data["sequence"] + 1)
             save(self.path, data)
         mark(self.socket, self.pane, self.token, "")
+        remember_remote(data)
 
 
 def event(context, payload):
@@ -278,7 +377,9 @@ def event(context, payload):
         if path.is_symlink():
             return
         record = private_record(path)
-        if not isinstance(payload, dict) or not verified_origin(context, record):
+        if (not isinstance(payload, dict)
+                or (record.get("remote_session") and payload.get("session_id") != record["remote_session"])
+                or not verified_origin(context, record)):
             return
         identity = tmux(socket, "display-message", "-p", "-t", pane,
                         "#{start_time}:#{pid}|#{pane_pid}")
@@ -295,6 +396,7 @@ def event(context, payload):
         save(path, result)
     # No payload, prompts, tool inputs or transcript text enters tmux or disk.
     mark(socket, pane, token, token + ":" + str(result["sequence"]))
+    remember_remote(result)
 
 
 def main():
@@ -302,14 +404,13 @@ def main():
     parser.add_argument("action", choices=["event"])
     parser.parse_args()
     try:
-        context = runtime_context()
-        if context is None:
-            return 0
         data = sys.stdin.buffer.read(1024 * 1024 + 1)
         if len(data) <= 1024 * 1024:
             payload = json.loads(data)
             if isinstance(payload, dict):
-                event(context, payload)
+                context = remote_context(payload) or runtime_context()
+                if context is not None:
+                    event(context, payload)
     except (OSError, ValueError, RuntimeError, TypeError, KeyError, subprocess.TimeoutExpired):
         # Advisory observer only: a dashboard failure must never control Codex.
         print("cdev activity evidence unavailable; continuing without a status update", file=sys.stderr)

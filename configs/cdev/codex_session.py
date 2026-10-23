@@ -234,12 +234,9 @@ def shared_endpoint():
     return path
 
 
-def loaded_threads(endpoint):
-    """Read-only initialize + loaded/list over the documented local WebSocket.
-
-    No proxy/start/resume RPC, transcript access, authentication reads or new
-    dependencies. Bound time/frames/bytes; an unsupported transport fails closed.
-    """
+@contextlib.contextmanager
+def server_connection(endpoint):
+    """Bounded local WebSocket; callers choose explicit metadata/config RPCs."""
     deadline = time.monotonic() + 5
     with socket.socket(socket.AF_UNIX) as connection:
         connection.settimeout(5)
@@ -302,25 +299,45 @@ def loaded_threads(endpoint):
                     row = json.loads(body)
                     if row.get('id') == identity:
                         if 'error' in row or not isinstance(row.get('result'), dict):
-                            raise CdevError('shared app-server rejected read-only ' + method)
+                            raise CdevError('shared app-server rejected ' + method)
                         return row['result']
                 raise CdevError('shared app-server metadata response missing')
 
             request(1, 'initialize', {'clientInfo': {'name': 'cdev_recovery', 'version': '1'}})
             send({'method': 'initialized', 'params': {}})
-            loaded, cursor = set(), None
-            for page in range(100):
-                result = request(page + 2, 'thread/loaded/list', {'cursor': cursor})
-                data = result.get('data')
-                if not isinstance(data, list) or not all(isinstance(item, str) for item in data):
-                    raise CdevError('invalid shared app-server thread identities')
-                loaded.update(data)
-                cursor = result.get('nextCursor')
-                if not cursor:
-                    return loaded
-                if not isinstance(cursor, str):
-                    break
-            raise CdevError('shared app-server thread pagination is invalid or too large')
+            yield request, connection
+
+
+def loaded_threads(endpoint):
+    """Read-only discovery; never start, resume, or read a conversation."""
+    with server_connection(endpoint) as (request, _):
+        loaded, cursor = set(), None
+        for page in range(100):
+            result = request(page + 2, 'thread/loaded/list', {'cursor': cursor})
+            data = result.get('data')
+            if not isinstance(data, list) or not all(isinstance(item, str) for item in data):
+                raise CdevError('invalid shared app-server thread identities')
+            loaded.update(data)
+            cursor = result.get('nextCursor')
+            if not cursor:
+                return loaded
+            if not isinstance(cursor, str):
+                break
+        raise CdevError('shared app-server thread pagination is invalid or too large')
+
+
+def configure_remote_activity(endpoint, identity, root, observer, adapter):
+    # The 0.163 remote TUI drops -c hooks.* from thread/resume.config. Send
+    # only those same definitions through the supported per-thread API first.
+    # No global config/trust writes, policies, prompts, or history hydration.
+    with server_connection(endpoint) as (request, connection):
+        if sys.platform != 'darwin':
+            raise CdevError('remote hook attribution requires macOS Unix peer credentials')
+        backend = connection.getsockopt(0, 2)  # SOL_LOCAL / LOCAL_PEERPID
+        observer.remote(identity, backend)
+        request(2, 'thread/resume', {'threadId': identity, 'cwd': str(root),
+                                   'excludeTurns': True,
+                                   'config': observer.definition_config(adapter)})
 
 
 def resume_transport(identity):
@@ -373,10 +390,19 @@ def launch(root, agent):
             # Python resolves sys.path through a symlinked main script, so the
             # imported module's __file__ may name a versioned release. The main
             # script retains its lexical installed path; use that stable sibling.
-            hook_args = observer.config_args(adapter=Path(__file__).absolute().with_name('activity.py'))
+            adapter = Path(__file__).absolute().with_name('activity.py')
+            hook_args = observer.config_args(adapter=adapter)
+            if '--remote' in command:
+                endpoint = command[command.index('--remote') + 1].removeprefix('unix://')
+                configure_remote_activity(Path(endpoint), selection['session'], root, observer, adapter)
             child_env.update(observer.environment())
             command += hook_args
-        except (ImportError, OSError, ValueError, RuntimeError, TypeError, KeyError, subprocess.SubprocessError):
+        except (ImportError, CdevError, OSError, ValueError, RuntimeError, TypeError, KeyError, subprocess.SubprocessError):
+            if observer is not None:
+                try:
+                    observer.finish()
+                except (OSError, ValueError, RuntimeError, TypeError, KeyError, subprocess.SubprocessError):
+                    pass
             observer = None
             print('cdev: activity tracking unavailable; Codex launch policies unchanged', file=sys.stderr)
     # No --all, approval/sandbox overrides, prompts, credential reads, or retries.

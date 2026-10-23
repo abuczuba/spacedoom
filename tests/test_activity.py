@@ -180,7 +180,7 @@ class ActivityIntegration(unittest.TestCase):
     def test_concurrent_same_cwd_wrong_environment_reordering_and_no_cross_pane_events(self):
         h = self.h
         other = h.tm("new-window", "-P", "-F", "#{pane_id}", "/usr/bin/python3", "-B",
-                     str(h.release / "cdev/codex_session.py"), "launch", "--root", str(self.root),
+                     str(h.home / ".config/cdev/codex_session.py"), "launch", "--root", str(self.root),
                      "--codex", str(h.bin / "codex")).strip()
         second = context(h, other)
         other_runtime = json.loads(second["runtime"])
