@@ -277,12 +277,10 @@ class Dashboard:
         # project path or hook payload is interpolated into shell commands.
         command = ("python3 -B " + shlex.quote(script) + " refresh --socket " + shlex.quote(self.socket)
                    + " --state " + shlex.quote(str(self.state)) + " --quiet")
-        installer = ("python3 -B " + shlex.quote(script) + " watch --socket " + shlex.quote(self.socket)
-                     + " --state " + shlex.quote(str(self.state)) + " --ghostty-config " + shlex.quote(str(self.ghostty)) + " --quiet")
+        installer = self.installer_command("watch")
         if self.pager_config is not None:
             option = " --pager-config " + shlex.quote(str(self.pager_config))
             command += option
-            installer += option
         self.tm("set-hook", "-g", "session-created[882]", "run-shell -b " + shlex.quote(installer))
         if not self.tm("show-options", "-gqv", "@dotfiles-status-interval-before"):
             self.tm("set-option", "-g", "@dotfiles-status-interval-before", self.tm("show-options", "-gqv", "status-interval"))
@@ -307,6 +305,31 @@ class Dashboard:
 
     def watch(self):
         self.install(navigation=False)  # New sessions must never rebind live keys.
+
+    def installer_command(self, action):
+        command = ("python3 -B " + shlex.quote(str(Path(__file__).resolve())) + " " + action
+                   + " --socket " + shlex.quote(self.socket) + " --state " + shlex.quote(str(self.state))
+                   + " --ghostty-config " + shlex.quote(str(self.ghostty)) + " --quiet")
+        if self.pager_config is not None:
+            command += " --pager-config " + shlex.quote(str(self.pager_config))
+        return command
+
+    def bootstrap(self):
+        if self.tm("show-options", "-gqv", "@dotfiles-dashboard-enabled") == "off":
+            return
+        # Only global checks are valid before the first session exists. The
+        # eventual installer still performs every binding/format conflict check.
+        self.preflight(check_formats=False, require_navigation=False)
+        self.tm("set-hook", "-g", "session-created[882]",
+                "run-shell -b " + shlex.quote(self.installer_command("start")))
+        if self.tm("display-message", "-p", "#{session_id}"):
+            self.start()
+
+    def start(self):
+        if self.tm("show-options", "-gqv", "@dotfiles-attention-installed") == "on":
+            self.watch()
+        else:
+            self.install()
 
     def preflight(self, check_formats=True, require_navigation=True):
         hooks = self.tm("show-hooks", "-g").splitlines()
@@ -401,7 +424,7 @@ class Dashboard:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["install", "watch", "refresh", "attention", "preview", "disable", "preflight"])
+    parser.add_argument("action", choices=["bootstrap", "start", "install", "watch", "refresh", "attention", "preview", "disable", "preflight"])
     parser.add_argument("--socket")
     parser.add_argument("--session")
     parser.add_argument("--state")

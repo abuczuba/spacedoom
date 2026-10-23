@@ -307,7 +307,7 @@ class DashboardIntegration(unittest.TestCase):
                         "/usr/bin/python3", "-c", "import time; time.sleep(120)").strip()
         record = dict(socket=self.socket, pane=agent, pid=int(self.tm("display-message", "-p", "-t", agent, "#{pane_pid}")),
                       boot=self.tm("display-message", "-p", "#{start_time}:#{pid}").strip(),
-                      token="forward-chain", session="synthetic", turn="one", state="waiting", stamp=int(time.time()))
+                      token="forward-chain", session="synthetic", turn="one", sequence=1, state="waiting", stamp=int(time.time()))
         path = self.root / "state/dotfiles-dashboard" / (hashlib.sha256(self.socket.encode()).hexdigest() + "-" + agent[1:] + ".json")
         path.write_text(json.dumps(record))
         path.chmod(0o600)
@@ -384,6 +384,7 @@ class DashboardIntegration(unittest.TestCase):
         self.tm("set-environment", "-g", "XDG_STATE_HOME", str(self.root / "state"))
         overlay.write_text((REPO / "configs/tmux/agent-dashboard.conf").read_text().replace("@RELEASE@", str(REPO / "configs")))
         self.tm("source-file", str(overlay))
+        self.view.bootstrap()  # tmux.conf activates after theme/navigation setup.
         after = {line.split()[3]: line for line in self.tm("list-keys", "-T", "prefix").splitlines()}
         self.assertEqual({key for key in before.keys() | after.keys() if before.get(key) != after.get(key)}, {"n", "c", "N"})
         for key in ["h", "j", "k", "l", "M-h", "M-l", "1", "9", "?", "Q", "L"]:
@@ -437,7 +438,7 @@ class DashboardIntegration(unittest.TestCase):
             record = dict(socket=self.socket, pane=pane,
                           pid=int(self.tm("display-message", "-p", "-t", pane, "#{pane_pid}")),
                           boot=self.tm("display-message", "-p", "#{start_time}:#{pid}").strip(),
-                          token="stopped-" + pane[1:], session="synthetic-" + pane, turn="one",
+                          token="stopped-" + pane[1:], session="synthetic-" + pane, turn="one", sequence=1,
                           state="done", ended=False, stamp=int(time.time()) - age)
             folder = self.root / "state/dotfiles-dashboard"
             folder.mkdir(mode=0o700, parents=True, exist_ok=True)
