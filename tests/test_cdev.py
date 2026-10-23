@@ -177,6 +177,10 @@ class CdevIntegration(unittest.TestCase):
         args = h.log()[-1]
         self.assertEqual(args[1:3], ["--cd", str(root)])
         self.assertIn("hooks.UserPromptSubmit=", " ".join(args))
+        hook = next(value for value in args if value.startswith("hooks.UserPromptSubmit="))
+        command = json.JSONDecoder().raw_decode(hook.split("command=", 1)[1])[0]
+        self.assertIn(str(h.home / ".config/cdev/activity.py"), command)
+        self.assertNotIn(str(h.release), command)
         right = h.tm("list-panes", "-t", h.window(root), "-F", "#{pane_id}").splitlines()[1]
         marker = h.tm("show-options", "-pqv", "-t", right, "@dotfiles-agent-evidence").strip()
         self.assertTrue(marker)
@@ -201,12 +205,12 @@ class CdevIntegration(unittest.TestCase):
         fixture = h.root / "standalone.fish"
         fixture.write_bytes(source.read_bytes())
         installed = h.home / ".config/cdev"
-        installed.mkdir(parents=True)
+        installed.mkdir(parents=True, exist_ok=True)
         for name in ["codex_session.py", "activity.py"]:
-            (installed / name).symlink_to(h.release / "cdev" / name)
+            self.assertEqual((installed / name).resolve(), h.release / "cdev" / name)
         root = h.repo("legacy-standalone")
         identity = h.saved(root)
-        self.assert_ok(h.fish("source " + shlex.quote(str(fixture)) + "; cdev " + shlex.quote(str(root))))
+        self.assert_ok(h.fish("source " + shlex.quote(str(fixture)) + "; CDEV_EDITOR_MODE=standalone cdev " + shlex.quote(str(root))))
         self.assertIn("|27.0|-nw", Path(h.env["CDEV_TEST_EDITOR_LOG"]).read_text())
         args = h.log()[-1]
         self.assertEqual(args[1:5], ["resume", identity, "--cd", str(root)])
@@ -215,5 +219,5 @@ class CdevIntegration(unittest.TestCase):
         self.assertIn(str(installed / "activity.py"), command)
         self.assertNotIn(str(h.release), command)
         before = h.snapshot(), h.log()
-        self.assert_ok(h.fish("source " + shlex.quote(str(fixture)) + "; cdev " + shlex.quote(str(root))))
+        self.assert_ok(h.fish("source " + shlex.quote(str(fixture)) + "; CDEV_EDITOR_MODE=standalone cdev " + shlex.quote(str(root))))
         self.assertEqual((h.snapshot(), h.log()), before)

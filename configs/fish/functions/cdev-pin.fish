@@ -18,7 +18,11 @@ function cdev-pin --description 'Set/show/remove a verified per-project Codex se
     if test (count $argv) -eq 2
         set target "$argv[2]"
     end
-    set -l helper '@RELEASE@/cdev/codex_session.py'
+    set -l config_home "$HOME/.config"
+    if set -q XDG_CONFIG_HOME; and test -n "$XDG_CONFIG_HOME"
+        set config_home "$XDG_CONFIG_HOME"
+    end
+    set -l helper "$config_home/cdev/codex_session.py"
     if test "$action" = pin
         /usr/bin/python3 -B "$helper" "$action" --root "$target" --session "$identity"
     else

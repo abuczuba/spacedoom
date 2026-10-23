@@ -38,6 +38,10 @@ class CdevHarness:
         self.release = self.root / "release"
         deploy = Deployment(REPO, self.home, self.root / "inactive")
         deploy.materialize(self.release, self.release, deploy.manifest())
+        installed = self.home / ".config/cdev"
+        installed.mkdir(parents=True, exist_ok=True)
+        for name in ("codex_session.py", "activity.py"):
+            (installed / name).symlink_to(self.release / "cdev" / name)
         ghostty = self.home / ".config/ghostty/config.ghostty"
         ghostty.parent.mkdir(parents=True, exist_ok=True)
         ghostty.write_bytes((self.release / "ghostty/config.ghostty").read_bytes())

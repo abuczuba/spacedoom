@@ -48,3 +48,17 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(value["Umask"], 0o077)
         self.assertEqual(value["ProgramArguments"][2], "@RELEASE@/cdev/doom-server.py")
         self.assertEqual(value["EnvironmentVariables"]["MACOSX_DEPLOYMENT_TARGET"], "27.0")
+
+    def test_bootout_refuses_clients_unsaved_buffers_or_unknown_server_state(self):
+        with tempfile.TemporaryDirectory(prefix="df-service-") as directory:
+            with patch.object(doom_service.Path, "home", return_value=Path(directory).resolve()), \
+                    patch.object(doom_service, "verified_plist"), \
+                    patch.object(doom_service.subprocess, "run") as run, \
+                    redirect_stderr(io.StringIO()):
+                for output, code in [("(1 0)", 0), ("(0 1)", 0), ("", 1)]:
+                    run.reset_mock()
+                    run.return_value.stdout = output
+                    run.return_value.returncode = code
+                    self.assertEqual(doom_service.main(["bootout", "--approve"]), 1)
+                    run.assert_called_once()
+                    self.assertIn("emacsclient", run.call_args.args[0][0])

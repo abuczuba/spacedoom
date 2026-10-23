@@ -87,7 +87,13 @@ function __cdev_open --argument-names root session digest
         printf 'cdev: codex must be executable on PATH.\n' >&2
         return 1
     end
-    set -l helper '@RELEASE@/cdev/codex_session.py'
+    # Keep the already-trusted hook adapter path stable across releases. Editor
+    # code stays pinned below; conversation recovery uses the managed live helper.
+    set -l config_home "$HOME/.config"
+    if set -q XDG_CONFIG_HOME; and test -n "$XDG_CONFIG_HOME"
+        set config_home "$XDG_CONFIG_HOME"
+    end
+    set -l helper "$config_home/cdev/codex_session.py"
     set -l server '@RELEASE@/cdev/doom-server.py'
     set -l dashboard_mode 1
     if set -q CDEV_DASHBOARD

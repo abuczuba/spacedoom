@@ -1,14 +1,16 @@
-# Persistent Doom clients — repository candidate
+# Persistent Doom clients
 
-No live Fish/Doom configuration or persistent service has been changed. Existing
-standalone Emacs and Codex processes remain in place. Only future, approved cdev
-launches use the new client path; reuse never replaces an existing editor pane.
+Activation is authorized for this milestone; STATUS.md records actual deployment.
+Existing standalone Emacs and Codex processes remain in place. Only future cdev
+launches use the client path; reuse never replaces an existing editor pane.
 
 ## Inspected baseline
 
 The live 130-line cdev function creates/reuses a Git-root window, Doom left and
-Codex right at 50/50. Its Python helper preserves fresh / project-scoped `resume
---last` / verified UUID-pin semantics. The previous temporary tests were inspected
+Codex right at 50/50. Its Python helper now preserves exact verified project UUIDs
+and shared-server remote resume from repair 343faaf; it never uses `resume --last`.
+The Fish candidate uses the stable installed helper path so the eight trusted
+hook definitions do not acquire release-specific commands. The previous tests were inspected
 and their restoration, naming, collision, concurrency and policy checks were
 ported into repository tests. No user conversation content was read.
 
@@ -91,15 +93,15 @@ Management commands, from POSIX sh/Zsh or as individual Fish commands:
 ```sh
 python3 -B scripts/doom_service.py plan
 python3 -B scripts/doom_service.py status
-# Each line below requires its own operation-specific approval:
+# Mutations require approval; the current consolidated milestone includes them:
 python3 -B scripts/doom_service.py bootstrap --approve
 python3 -B scripts/doom_service.py kickstart --approve
 python3 -B scripts/doom_service.py bootout --approve
 ```
 
-The tool never installs a plist. The exact LaunchAgent file must first be
-individually backed up/migrated through the deployment tool. No launchctl mutation
-has been executed during development; those paths are tested with mocks only.
+The tool never installs a plist. The exact LaunchAgent file is first backed up
+and migrated through the deployment tool. Manual/disposable testing precedes
+service bootstrap; service recovery never uses `kickstart -k` or replaces a live job.
 
 Manual foreground fallback, after separate production-daemon authorization:
 
