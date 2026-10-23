@@ -36,7 +36,7 @@ EXPIRED = ("#{&&:#{!=:#{@dotfiles-agent-state},done},"
            "#{>=:#{t/d:@dotfiles-agent-ts},900}}")
 SIGNATURE = ("#{W:#{?#{||:#{||:#{@workmux_status},#{P:#{@workmux_pane_status}#{@dotfiles-agent-evidence}}},#{@dotfiles-agent}},"
              "#{window_id}|#{window_name}|#{P:#{pane_id}/#{pane_pid}/#{pane_dead}/"
-             "#{pane_current_command}/#{@workmux_pane_status}/#{@dotfiles-agent-evidence};}"
+             "#{pane_current_command}/#{@workmux_pane_status}/#{@dotfiles-agent-evidence}/#{@dotfiles-agent-ack};}"
              "#{?@dotfiles-agent," + EXPIRED + ",},}}")
 TITLE_SLOT = (" #{?#{&&:#{@dotfiles-agent},#{&&:#{>=:#{t/d:@dotfiles-agent-ts},0},"
               "#{||:#{==:#{@dotfiles-agent-state},done},#{<:#{t/d:@dotfiles-agent-ts},900}}}},"
@@ -94,6 +94,18 @@ def evidence_fresh(state, stamp, now):
     # Working/waiting evidence still expires if its event stream goes silent.
     return (isinstance(stamp, int) and now >= stamp
             and (state == "done" or now - stamp < TTL))
+
+
+def event_key(pane):
+    """Identity of this observed state, independent of window/title/number."""
+    return hashlib.sha256(json.dumps([pane["track_id"], pane["turn"],
+                                      pane["revision"], pane["state"]]).encode()).hexdigest()
+
+
+def actionable(panes):
+    # Acknowledgment affects presentation/navigation only. Keep the original
+    # snapshot intact for the pager's transition ledger and lifecycle validation.
+    return [p for p in panes if p["state"] != "done" or p.get("ack") != event_key(p)]
 
 
 def observable(record, pane, socket, boot, now):
@@ -169,14 +181,15 @@ class Dashboard:
         now = int(time.time()) if now is None else now
         boot = self.tm("display-message", "-p", "#{start_time}:#{pid}")
         fields = ["session_id", "window_id", "window_index", "pane_id", "pane_pid",
-                  "pane_dead", "pane_current_command", "@workmux_pane_status", "@dotfiles-agent-evidence", "@cdev_root"]
+                  "pane_dead", "pane_current_command", "@workmux_pane_status", "@dotfiles-agent-evidence", "@cdev_root",
+                  "@dotfiles-agent-ack", "@dotfiles-agent-event"]
         rows = self.tm("list-panes", "-a", "-F", "\t".join("#{" + x + "}" for x in fields))
         result = []
         for row in rows.splitlines():
             values = row.split("\t")
             if len(values) != len(fields):
                 continue
-            pane = dict(zip(["session", "window", "index", "pane", "pid", "dead", "command", "raw", "own", "project_dir"], values))
+            pane = dict(zip(["session", "window", "index", "pane", "pid", "dead", "command", "raw", "own", "project_dir", "ack", "event"], values))
             if pane["own"]:
                 name = hashlib.sha256(self.socket.encode()).hexdigest() + "-" + pane["pane"][1:] + ".json"
                 try:
@@ -222,9 +235,16 @@ class Dashboard:
             if self.tm("show-options", "-gqv", "@dotfiles-dashboard-enabled") == "off":
                 return
             observed = self.snapshot()
+            # Capture the displayed turn for the key binding. The callback must
+            # match this exact event under the same lock as lifecycle updates;
+            # a delayed key must never acknowledge a newer turn or launch.
+            for pane in observed:
+                event = event_key(pane) if pane["state"] == "done" else ""
+                if pane["event"] != event:
+                    self.tm("set-option", "-p", "-t", pane["pane"], "@dotfiles-agent-event", event)
             by_window = {}
             priority = {"waiting": 3, "done": 2, "working": 1}
-            for pane in observed:
+            for pane in actionable(observed):
                 old = by_window.get(pane["window"])
                 if old is None or priority[pane["state"]] > priority[old["state"]]:
                     by_window[pane["window"]] = pane
@@ -292,6 +312,10 @@ class Dashboard:
         # Cover events arriving between this initial refresh and that first tick.
         self.tm("run-shell", "-b", "-d", "2", command)
         if navigation:
+            acknowledge = ("python3 -B " + shlex.quote(script) + " acknowledge --socket " + shlex.quote(self.socket)
+                           + " --state " + shlex.quote(str(self.state))
+                           + " --pane #{q:pane_id} --event=#{q:@dotfiles-agent-event}")
+            self.tm("bind-key", "a", "run-shell", acknowledge)
             self.tm("bind-key", "c", "new-window", "-c", "#{pane_current_path}")
             self.tm("bind-key", "N", "next-window")
             if self.navigation_ready():
@@ -337,6 +361,9 @@ class Dashboard:
             if line.startswith("session-created[882]") and "agent-dashboard.py" not in line:
                 raise ValueError("session-created hook slot 882 is occupied; review the conflict")
         keys = self.prefix_bindings()
+        if "a" in keys and not (keys["a"][0] == "run-shell" and
+                               any("agent-dashboard.py" in part and " acknowledge " in part for part in keys["a"])):
+            raise ValueError("a is already bound; review the acknowledgment conflict")
         if "N" in keys and keys["N"] != ["next-window"]:
             raise ValueError("Shift+N is already bound; review the navigation conflict")
         if check_formats:
@@ -367,7 +394,7 @@ class Dashboard:
         with self.locked():
             if self.tm("show-options", "-gqv", "@dotfiles-dashboard-enabled") == "off":
                 return
-            queue = sorted((p for p in self.snapshot() if p["session"] == session and p["state"] in {"done", "waiting"}),
+            queue = sorted((p for p in actionable(self.snapshot()) if p["session"] == session and p["state"] in {"done", "waiting"}),
                            key=lambda p: (int(p["index"]), int(p["pane"][1:])))
             if not queue:
                 return  # Explicitly no working/idle fallback and no focus change.
@@ -376,6 +403,20 @@ class Dashboard:
             next_pane = queue[(ids.index(current) + 1) % len(queue)] if current in ids else queue[0]
             self.tm("select-window", "-t", session + ":" + next_pane["window"])
             self.tm("select-pane", "-t", next_pane["pane"])
+
+    def acknowledge(self, pane, event):
+        if not re.fullmatch(r"%\d+", pane):
+            raise ValueError("a stable pane ID is required")
+        if not re.fullmatch(r"[0-9a-f]{64}", event):
+            return  # Nothing displayed in a shell, working or approval pane.
+        with self.locked():
+            if self.tm("show-options", "-gqv", "@dotfiles-dashboard-enabled") == "off":
+                return
+            current = next((p for p in self.snapshot() if p["pane"] == pane), None)
+            if current is None or current["state"] != "done" or event_key(current) != event:
+                return
+            self.tm("set-option", "-p", "-t", pane, "@dotfiles-agent-ack", event)
+        self.refresh()
 
     def disable(self):
         """Explicit feature recovery, never called by Git/deployment/tests on live."""
@@ -403,6 +444,8 @@ class Dashboard:
             if interval:
                 self.tm("set-option", "-g", "status-interval", interval)
             self.tm("bind-key", "n", "new-window", "-c", "#{pane_current_path}")
+            if " acknowledge " in " ".join(keys.get("a", [])):
+                self.tm("unbind-key", "a")
             # Preserve Cmd+Shift+N's directory semantics while Ghostty forwards c.
             # Full Ghostty rollback/reload precedes restoring c's former default.
             if not self.navigation_ready():
@@ -424,9 +467,11 @@ class Dashboard:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["bootstrap", "start", "install", "watch", "refresh", "attention", "preview", "disable", "preflight"])
+    parser.add_argument("action", choices=["bootstrap", "start", "install", "watch", "refresh", "attention", "acknowledge", "preview", "disable", "preflight"])
     parser.add_argument("--socket")
     parser.add_argument("--session")
+    parser.add_argument("--pane")
+    parser.add_argument("--event", default="")
     parser.add_argument("--state")
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--ghostty-config")
@@ -441,6 +486,8 @@ def main():
         dashboard = Dashboard(args.socket or "", args.state, args.ghostty_config, args.pager_config)
         if args.action == "attention":
             dashboard.attention(args.session or "")
+        elif args.action == "acknowledge":
+            dashboard.acknowledge(args.pane or "", args.event)
         elif args.action == "preflight":
             dashboard.preflight(require_navigation=not args.display_only)
         else:

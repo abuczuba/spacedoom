@@ -245,7 +245,7 @@ class DashboardIntegration(unittest.TestCase):
         self.tm("set-option", "-g", "renumber-windows", "on")
         self.tm("set-option", "-g", "default-command", "/bin/sleep 120")
         self.tm("bind-key", "Tab", "run-shell", "workmux last-agent")
-        protected = {k:v for k,v in self.view.prefix_bindings().items() if k not in {"n", "c", "N"}}
+        protected = {k:v for k,v in self.view.prefix_bindings().items() if k not in {"a", "n", "c", "N"}}
         directory = self.root / "project with spaces"
         directory.mkdir()
         start = self.tm("new-window", "-P", "-F", "#{window_id}", "-c", str(directory), "/bin/sleep", "120").strip()
@@ -337,7 +337,7 @@ class DashboardIntegration(unittest.TestCase):
         wait_for(lambda: self.tm("display-message", "-p", "#{pane_id}").strip() == right)
         os.write(fd, new_keys["super+shift+h"])
         wait_for(lambda: self.tm("display-message", "-p", "#{pane_id}").strip() == left)
-        self.assertEqual({k:v for k,v in self.view.prefix_bindings().items() if k not in {"n", "c", "N"}}, protected)
+        self.assertEqual({k:v for k,v in self.view.prefix_bindings().items() if k not in {"a", "n", "c", "N"}}, protected)
 
     def test_title_and_hook_conflicts_are_refused_without_overwrite(self):
         self.tm("set-option", "-w", "window-status-format", "custom-title")
@@ -386,7 +386,7 @@ class DashboardIntegration(unittest.TestCase):
         self.tm("source-file", str(overlay))
         self.view.bootstrap()  # tmux.conf activates after theme/navigation setup.
         after = {line.split()[3]: line for line in self.tm("list-keys", "-T", "prefix").splitlines()}
-        self.assertEqual({key for key in before.keys() | after.keys() if before.get(key) != after.get(key)}, {"n", "c", "N"})
+        self.assertEqual({key for key in before.keys() | after.keys() if before.get(key) != after.get(key)}, {"a", "n", "c", "N"})
         for key in ["h", "j", "k", "l", "M-h", "M-l", "1", "9", "?", "Q", "L"]:
             self.assertEqual(before[key], after[key])
         self.assertIn("next-window", self.tm("list-keys", "-T", "prefix", "N"))

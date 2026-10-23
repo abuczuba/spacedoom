@@ -53,6 +53,7 @@ SHORTCUTS / TERMINAL + EDITOR
 
   WINDOWS
   Ctrl+F -> n                | Agent attention; legacy: new window
+  Ctrl+F -> a                | Acknowledge this Codex pane's stopped turn
   Ctrl+F -> c                | New window in pane's directory
   Cmd+Shift+N                | Same creation, forwarded through c
   Ctrl+F -> 1 .. 9           | Select window by current number
@@ -62,6 +63,8 @@ SHORTCUTS / TERMINAL + EDITOR
   Ctrl+F -> :                | Command prompt
   Attention needs the companion Ghostty Cmd+Shift+N -> c mapping.
   Until companion + explicit tmux reload, n keeps creating windows.
+  Acknowledge hides only this turn's dot/attention; new activity resets it.
+  Focus the Codex pane first. Working/approval/shell panes are unchanged.
   Ctrl+F -> ,                | Rename window
   Ctrl+F -> f                | Find a window
   Ctrl+F -> w or Ctrl+W      | workmux dashboard popup
