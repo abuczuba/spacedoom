@@ -61,9 +61,17 @@ class ActivityTests(unittest.TestCase):
         self.assertIsNone(self.send("Stop", session_id="old-session"))
         self.assertIsNone(self.send("Stop", turn=None))
         self.assertIsNone(self.send("Notification"))
-        self.send("SessionEnd", turn=None)
-        self.assertEqual(self.record["state"], "idle")
-        self.assertIsNone(self.send("UserPromptSubmit", turn="new"))
+        before = self.record.copy()
+        self.assertIsNone(self.send("SessionEnd", turn=None))
+        self.assertEqual(self.record, before)
+        self.assertIsNotNone(self.send("UserPromptSubmit", turn="new"))
+
+    def test_session_end_cannot_bind_an_unidentified_launch(self):
+        before = self.record.copy()
+        self.assertIsNone(self.send("SessionEnd", turn=None, session_id="previous-session"))
+        self.assertEqual(self.record, before)
+        self.assertIsNotNone(self.send("UserPromptSubmit"))
+        self.assertEqual(self.record["session"], "session-a")
 
     def test_invocation_config_has_no_policy_or_global_hook_overrides(self):
         with tempfile.TemporaryDirectory(prefix="df-hooks-") as folder:
@@ -230,12 +238,11 @@ class ActivityIntegration(unittest.TestCase):
         dispatch(h, self.pane, turn="two")
         dispatch(h, self.pane, event="Stop", turn="one")
         self.assertEqual(activity.private_record(self.path)["state"], "working")
+        working = self.path.read_bytes()
         dispatch(h, self.pane, event="SessionEnd", turn=None)
-        self.assertTrue(activity.private_record(self.path)["ended"])
-        self.assertEqual(activity.private_record(self.path)["state"], "idle")
-        ended = self.path.read_bytes()
+        self.assertEqual(self.path.read_bytes(), working)
         dispatch(h, self.pane, turn="three")
-        self.assertEqual(self.path.read_bytes(), ended)
+        self.assertEqual(activity.private_record(self.path)["turn"], "three")
 
     def test_missing_failed_untrusted_or_busy_hook_leaves_cli_usable_and_unlabelled(self):
         h = self.h
@@ -259,6 +266,8 @@ class ActivityIntegration(unittest.TestCase):
 
     def test_child_exit_clears_working_evidence_and_late_events_cannot_revive_it(self):
         h = self.h
+        dispatch(h, self.pane, event="SessionEnd", turn=None)
+        self.assertFalse(activity.private_record(self.path)["ended"])
         dispatch(h, self.pane)
         self.assertEqual(activity.private_record(self.path)["state"], "working")
         request = h.root / "synthetic-events" / (self.pane[1:] + ".request")

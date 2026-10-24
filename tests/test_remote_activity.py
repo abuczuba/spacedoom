@@ -52,6 +52,110 @@ class RemoteActivityTests(unittest.TestCase):
             launch.remote(session, 77)
         return launch
 
+    def send(self, launch, event, turn='turn', session=None, context=None, identities=None):
+        """Real adapter/identity checks; only kernel ancestry and tmux are fixtures."""
+        record = activity.private_record(launch.path)
+        processes = {
+            record['pid']: {'started': record['started'], 'parent': 1, 'command': 'Python'},
+            record['child']: {'started': record['child_started'], 'parent': record['pid'], 'command': 'codex'},
+            55: {'started': 'hook-shell', 'parent': 77, 'command': 'sh'},
+            77: {'started': 'backend', 'parent': 1, 'command': 'codex'},
+        }
+        processes.update(identities or {})
+
+        def identity(pid):
+            if processes[pid] is None:
+                raise ValueError('process exited')
+            return processes[pid]
+
+        with patch.object(activity.os, 'getppid', return_value=55), \
+                patch.object(activity, 'process_identity', side_effect=identity), \
+                patch.object(activity, 'tmux', return_value='1:22|' + str(record['pid'])), \
+                patch.object(activity, 'mark') as mark:
+            activity.event(context or json.loads(launch.environment()[activity.CONTEXT_ENV]), {
+                'hook_event_name': event, 'session_id': session or record['remote_session'],
+                'turn_id': turn, 'tool_name': 'Bash'})
+        return mark
+
+    def test_session_end_during_resume_does_not_retire_before_first_turn(self):
+        # Observed 0.164 failure: an end notification near attachment produced
+        # ended=true, turn=null, sequence=0 while both launcher and CLI lived.
+        for index, order in enumerate([['SessionEnd', 'SessionStart'], ['SessionStart', 'SessionEnd']]):
+            with self.subTest(order=order):
+                session = str(uuid.uuid4())
+                launch = self.launch('%' + str(index + 1), 33, session)
+                for event in order:
+                    self.send(launch, event, turn=None)
+                row = activity.private_record(launch.path)
+                self.assertFalse(row['ended'])
+                self.assertIsNone(row['turn'])
+                self.assertEqual(row['sequence'], 0)
+                self.assertIsNotNone(activity.remote_context({'session_id': session}))
+                for event, expected in [('UserPromptSubmit', 'working'), ('PermissionRequest', 'waiting'),
+                                        ('PostToolUse', 'working'), ('Stop', 'done')]:
+                    self.send(launch, event)
+                    self.assertEqual(activity.private_record(launch.path)['state'], expected)
+
+    def test_session_end_cannot_change_current_state_or_notification_revision(self):
+        session = str(uuid.uuid4())
+        launch = self.launch('%1', 33, session)
+        registry = activity.remote_path(session)
+        for event in ['SessionStart', 'UserPromptSubmit', 'PermissionRequest', 'PostToolUse', 'Stop']:
+            self.send(launch, event)
+            before = launch.path.read_bytes(), registry.read_bytes()
+            for _ in range(2):
+                mark = self.send(launch, 'SessionEnd', turn=None)
+                self.assertEqual((launch.path.read_bytes(), registry.read_bytes()), before)
+                mark.assert_not_called()
+
+    def test_session_end_from_older_launch_or_turn_cannot_corrupt_reopened_uuid(self):
+        session = str(uuid.uuid4())
+        first = self.launch('%1', 33, session)
+        old_context = json.loads(first.environment()[activity.CONTEXT_ENV])
+        self.send(first, 'UserPromptSubmit', turn='old-turn')
+        with patch.object(activity, 'mark'):
+            first.finish()
+        # Reuse the exact pane as well as UUID: only the launch identity changes.
+        current = self.launch('%1', 66, session)
+        other = self.launch('%9', 99, str(uuid.uuid4()))
+        self.send(current, 'UserPromptSubmit', turn='new-turn')
+        self.send(other, 'UserPromptSubmit', turn='independent-turn')
+        before = current.path.read_bytes(), other.path.read_bytes()
+        self.send(current, 'SessionEnd', turn=None, context=old_context)
+        self.send(current, 'SessionEnd', turn=None)  # Backend has no old launch token.
+        self.send(current, 'SessionEnd', turn=None, session=str(uuid.uuid4()))
+        for event in ['UserPromptSubmit', 'Stop', 'PermissionRequest']:
+            self.send(current, event, turn='old-turn')
+        with patch.object(activity, 'mark'):
+            first.finish()  # Delayed old finalizer must also leave the new pane alone.
+        self.assertEqual((current.path.read_bytes(), other.path.read_bytes()), before)
+        self.assertEqual(activity.remote_context({'session_id': session})['token'], current.token)
+
+    def test_session_end_does_not_weaken_process_birth_or_exit_checks(self):
+        session = str(uuid.uuid4())
+        launch = self.launch('%1', 33, session)
+        self.send(launch, 'SessionEnd', turn=None)
+        self.send(launch, 'UserPromptSubmit')
+        self.assertEqual(activity.private_record(launch.path)['state'], 'working')
+        before = launch.path.read_bytes()
+        for pid, command, parent in [(33, 'Python', 1), (34, 'codex', 33), (77, 'codex', 1)]:
+            with self.subTest(reused_pid=pid):
+                self.send(launch, 'PermissionRequest', identities={pid: {
+                    'started': 'reused PID', 'command': command, 'parent': parent}})
+                self.assertEqual(launch.path.read_bytes(), before)
+            with self.subTest(exited_pid=pid):
+                with self.assertRaises(ValueError):
+                    self.send(launch, 'Stop', identities={pid: None})
+                self.assertEqual(launch.path.read_bytes(), before)
+        with patch.object(activity, 'mark'):
+            launch.finish()
+        retired = launch.path.read_bytes()
+        self.assertTrue(activity.private_record(launch.path)['ended'])
+        self.assertIsNone(activity.remote_context({'session_id': session}))
+        for event in ['SessionStart', 'UserPromptSubmit', 'PermissionRequest', 'Stop', 'SessionEnd']:
+            self.send(launch, event)
+            self.assertEqual(launch.path.read_bytes(), retired)
+
     def test_stable_native_definitions_are_the_only_remote_overrides(self):
         launch = activity.Launch(self.root, '/private/tmp/test.sock', '%1')
         adapter = self.root / 'activity.py'
