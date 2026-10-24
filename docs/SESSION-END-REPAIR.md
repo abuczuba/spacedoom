@@ -1,3 +1,13 @@
+# Historical SessionEnd candidate — superseded for this rollout
+
+The 2026-10-24 native A/B comparison passed the full failure sequence with the
+connection-lifetime fix alone. The new release keeps production's activity.py
+unchanged; a13eae3 and its earlier inactive release are preserved as history.
+See [REMOTE-RESUME-REPAIR.md](REMOTE-RESUME-REPAIR.md). The original investigation
+and candidate preparation below describe the earlier, superseded proposal.
+
+---
+
 # SessionEnd registration repair — release preparation, 2026-10-24
 
 Signed repair-only commit and inactive staging are approved. Production activation,

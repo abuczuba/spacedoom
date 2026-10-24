@@ -242,17 +242,13 @@ def transition(record, payload, now):
     if (event not in EVENTS or not isinstance(session, str) or not 0 < len(session) <= 256
             or record.get("ended")):
         return None
-    if event == "SessionEnd":
-        # Session-level, not proof that this launcher/child exited. A remote
-        # notification can arrive during reattachment or from an older attach
-        # of the same UUID; it has no launch generation/turn to disambiguate it.
-        # Leave identity, current state and revision untouched. Launch.finish()
-        # retires the registration when its owned child actually terminates.
-        return None
     if record.get("session") not in (None, session):
         return None
     record["session"] = session
     if event == "SessionStart":
+        return record
+    if event == "SessionEnd":
+        record.update(state="idle", ended=True, stamp=now)
         return record
     if not isinstance(turn, str) or not 0 < len(turn) <= 256 or turn in record.get("retired", []):
         return None

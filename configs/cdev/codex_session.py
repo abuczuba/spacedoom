@@ -13,6 +13,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import uuid
 
@@ -235,13 +236,20 @@ def shared_endpoint():
 
 
 @contextlib.contextmanager
-def server_connection(endpoint):
-    """Bounded local WebSocket; callers choose explicit metadata/config RPCs."""
+def server_connection(endpoint, *, retain=False):
+    """Bounded setup RPCs; optionally retain and drain the setup subscription.
+
+    The retained connection keeps invocation-local hooks loaded until the owned
+    CLI exits. Its reader discards data frames without decoding event contents;
+    it is transport housekeeping, never another lifecycle/status source.
+    """
     deadline = time.monotonic() + 5
     with socket.socket(socket.AF_UNIX) as connection:
         connection.settimeout(5)
         connection.connect(str(endpoint))
         with connection.makefile('rb') as stream:
+            reader = None
+
             def exact(size):
                 connection.settimeout(max(.001, deadline - time.monotonic()))
                 value = stream.read(size)
@@ -276,7 +284,44 @@ def server_connection(endpoint):
                 connection.sendall(bytes([0x80 | opcode, length[0] | 0x80]) + length[1:] + mask +
                                    bytes(c ^ mask[i % 4] for i, c in enumerate(body)))
 
+            def drain():
+                try:
+                    while True:
+                        header = stream.read(2)
+                        if len(header) != 2:
+                            return
+                        first, second = header
+                        opcode, size = first & 15, second & 127
+                        if first & 0x70 or second & 0x80 or opcode not in (0, 1, 2, 8, 9, 10):
+                            return
+                        if size in (126, 127):
+                            count = 2 if size == 126 else 8
+                            length = stream.read(count)
+                            if len(length) != count:
+                                return
+                            size = int.from_bytes(length, 'big')
+                        if opcode >= 8:
+                            if not first & 0x80 or size > 125:
+                                return
+                            body = stream.read(size)
+                            if len(body) != size or opcode == 8:
+                                return
+                            if opcode == 9:
+                                send(body, 10)
+                        else:
+                            # Bound memory even for large/fragmented notifications.
+                            while size:
+                                body = stream.read(min(size, 65536))
+                                if not body:
+                                    return
+                                size -= len(body)
+                except OSError:
+                    pass  # The advisory transport must never stop the CLI.
+
             def request(identity, method, params):
+                nonlocal reader
+                if reader is not None:
+                    raise CdevError('retained setup connection cannot issue further RPCs')
                 send({'id': identity, 'method': method, 'params': params})
                 for _ in range(1000):
                     first, second = exact(2)
@@ -300,12 +345,24 @@ def server_connection(endpoint):
                     if row.get('id') == identity:
                         if 'error' in row or not isinstance(row.get('result'), dict):
                             raise CdevError('shared app-server rejected ' + method)
+                        if retain and method == 'thread/resume':
+                            connection.settimeout(None)
+                            reader = threading.Thread(target=drain, name='cdev-hook-subscription', daemon=True)
+                            reader.start()
                         return row['result']
                 raise CdevError('shared app-server metadata response missing')
 
             request(1, 'initialize', {'clientInfo': {'name': 'cdev_recovery', 'version': '1'}})
             send({'method': 'initialized', 'params': {}})
-            yield request, connection
+            try:
+                yield request, connection
+            finally:
+                if reader is not None:
+                    try:
+                        connection.shutdown(socket.SHUT_RDWR)
+                    except OSError:
+                        pass
+                    reader.join(timeout=1)
 
 
 def loaded_threads(endpoint):
@@ -326,11 +383,14 @@ def loaded_threads(endpoint):
         raise CdevError('shared app-server thread pagination is invalid or too large')
 
 
+@contextlib.contextmanager
 def configure_remote_activity(endpoint, identity, root, observer, adapter):
     # The 0.163 remote TUI drops -c hooks.* from thread/resume.config. Send
     # only those same definitions through the supported per-thread API first.
     # No global config/trust writes, policies, prompts, or history hydration.
-    with server_connection(endpoint) as (request, connection):
+    # Closing this subscription before the remote TUI attaches loses its hooks
+    # on 0.164. Keep it scoped to the owned client's lifetime, not just the RPC.
+    with server_connection(endpoint, retain=True) as (request, connection):
         if sys.platform != 'darwin':
             raise CdevError('remote hook attribution requires macOS Unix peer credentials')
         backend = connection.getsockopt(0, 2)  # SOL_LOCAL / LOCAL_PEERPID
@@ -338,6 +398,7 @@ def configure_remote_activity(endpoint, identity, root, observer, adapter):
         request(2, 'thread/resume', {'threadId': identity, 'cwd': str(root),
                                    'excludeTurns': True,
                                    'config': observer.definition_config(adapter)})
+        yield
 
 
 def resume_transport(identity):
@@ -374,6 +435,7 @@ def launch(root, agent):
         label = 'fresh session for ' + str(root)
     print('cdev: launching ' + label, flush=True)
     observer = None
+    remote_activity = contextlib.ExitStack()
     child_env = os.environ.copy()
     # Never leak an enclosing launch's registration to an untracked CLI.
     child_env.pop('CDEV_ACTIVITY_CONTEXT', None)
@@ -394,7 +456,8 @@ def launch(root, agent):
             hook_args = observer.config_args(adapter=adapter)
             if '--remote' in command:
                 endpoint = command[command.index('--remote') + 1].removeprefix('unix://')
-                configure_remote_activity(Path(endpoint), selection['session'], root, observer, adapter)
+                remote_activity.enter_context(configure_remote_activity(
+                    Path(endpoint), selection['session'], root, observer, adapter))
             child_env.update(observer.environment())
             command += hook_args
         except (ImportError, CdevError, OSError, ValueError, RuntimeError, TypeError, KeyError, subprocess.SubprocessError):
@@ -404,6 +467,7 @@ def launch(root, agent):
                 except (OSError, ValueError, RuntimeError, TypeError, KeyError, subprocess.SubprocessError):
                     pass
             observer = None
+            remote_activity.close()
             print('cdev: activity tracking unavailable; Codex launch policies unchanged', file=sys.stderr)
     # No --all, approval/sandbox overrides, prompts, credential reads, or retries.
     try:
@@ -427,6 +491,7 @@ def launch(root, agent):
                 observer.finish()
             except (OSError, ValueError, RuntimeError, TypeError, KeyError, subprocess.SubprocessError):
                 pass  # Pane/boot/age checks still reject abandoned evidence.
+        remote_activity.close()
     if code:
         report_launch_error(label + ' failed (exit ' + str(code) + '); no fallback session started')
     return code if code >= 0 else 128 - code
