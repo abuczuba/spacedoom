@@ -101,6 +101,13 @@ class DashboardTests(unittest.TestCase):
         self.assertNotIn("#{A", output)
         self.assertNotIn("#(", output)
 
+    def test_working_underline_uses_live_selection_and_existing_theme_colour(self):
+        value = dashboard.title_format("agent", "working")
+        self.assertIn("#{?window_active,#[underscore#,us=#{@tmux-dotbar-fg-current}],}", value)
+        self.assertIn("#{?window_active,#[nounderscore#,us=default],}", value)
+        for state in ["done", "waiting", "idle"]:
+            self.assertNotIn("underscore", dashboard.title_format("agent", state))
+
     def test_preview_matches_readable_stone_and_blood_palette(self):
         preview = (REPO / "docs/previews/dashboard.html").read_text()
         palette = json.loads(re.search(r'id="working-palette">(.*?)</script>', preview).group(1))
@@ -417,6 +424,122 @@ class DashboardIntegration(unittest.TestCase):
                 self.assertNotEqual(value, second)
             else:
                 self.assertIn("●" if state == "done" else "!", value)
+
+    def test_working_underline_moves_with_selection_without_cache_refresh(self):
+        windows = []
+        for name in ["first-agent", "second-agent", "long-agent-title-" * 4]:
+            window = self.tm("new-window", "-d", "-P", "-F", "#{window_id}", "-n", name, "/bin/sleep", "120").strip()
+            # Load large synthetic formats from a file, outside tmux's IPC cap.
+            values = self.root / "values.conf"
+            values.write_text("set -w -t " + window + " @dotfiles-agent " +
+                              shlex.quote(dashboard.title_format(name, "working")) + "\n")
+            self.tm("source-file", str(values))
+            self.tm("set-option", "-w", "-t", window, "@dotfiles-agent-ts", str(int(time.time())))
+            self.tm("set-option", "-w", "-t", window, "@dotfiles-agent-state", "working")
+            windows.append(window)
+        before = [self.tm("show-options", "-wqv", "-t", w, "@dotfiles-agent") for w in windows]
+        for index in range(24):
+            selected = windows[index % len(windows)]
+            self.tm("select-window", "-t", selected)
+            for window in windows:
+                value = self.tm("display-message", "-p", "-t", window, dashboard.TITLE_SLOT)
+                self.assertEqual("#[underscore,us=#f6c177]" in value, window == selected)
+                self.assertEqual("#[nounderscore,us=default]" in value, window == selected)
+        self.assertEqual(before, [self.tm("show-options", "-wqv", "-t", w, "@dotfiles-agent") for w in windows])
+        window = windows[0]
+        self.tm("select-window", "-t", window)
+        first = self.tm("display-message", "-p", "-t", window, dashboard.TITLE_SLOT)
+        time.sleep(1.05)
+        second = self.tm("display-message", "-p", "-t", window, dashboard.TITLE_SLOT)
+        self.assertNotEqual(first, second)
+        self.assertIn("#[underscore,us=#f6c177]", second)
+        colours = re.findall(r"#\[fg=(#[0-9a-f]{6}),bg=(#[0-9a-f]{6})\]", second)
+        self.assertEqual(len(colours), len("first-agent"))
+        self.assertTrue(all(pair in [dashboard.WORKING_BASE, *dashboard.WORKING_WAVE] for pair in colours))
+        self.tm("set-option", "-g", "@tmux-dotbar-fg-current", "#abcdef")
+        self.assertIn("#[underscore,us=#abcdef]", self.tm("display-message", "-p", "-t", window, dashboard.TITLE_SLOT))
+        for state in ["done", "waiting", "idle"]:
+            self.tm("set-option", "-w", "-t", window, "@dotfiles-agent", dashboard.title_format("first-agent", state))
+            self.tm("set-option", "-w", "-t", window, "@dotfiles-agent-state", state)
+            value = self.tm("display-message", "-p", "-t", window, dashboard.TITLE_SLOT)
+            self.assertNotIn("underscore", value)
+
+    def test_drawn_underline_excludes_padding_even_with_inherited_selected_style(self):
+        windows = [self.tm("display-message", "-p", "#{window_id}").strip(),
+                   self.tm("new-window", "-d", "-P", "-F", "#{window_id}",
+                           "-n", "BETA", "/bin/sleep", "120").strip()]
+        self.tm("rename-window", "-t", windows[0], "ALPHA")
+        for window, name in zip(windows, ["ALPHA", "BETA"]):
+            self.tm("set", "-w", "-t", window, "@dotfiles-agent", dashboard.title_format(name, "working"))
+            self.tm("set", "-w", "-t", window, "@dotfiles-agent-state", "working")
+            self.tm("set", "-w", "-t", window, "@dotfiles-agent-ts", str(int(time.time())))
+        for option, value in [("status-position", "top"), ("status-left", ""), ("status-right", ""),
+                              ("status-style", "fg=#e0def4,bg=#1f1d2e"),
+                              ("window-status-style", "fg=#e0def4,bg=#1f1d2e"),
+                              ("window-status-separator", " | ")]:
+            self.tm("set", "-g", option, value)
+
+        # An owned outer terminal decodes the real inner client's SGR output.
+        # Checking expanded format strings alone misses inherited padding styles.
+        with private_tmux() as terminal:
+            terminal("set", "-g", "status", "off")
+            terminal("set", "-g", "default-terminal", "xterm-ghostty")
+            terminal("set", "-g", "window-size", "manual")
+            terminal("resize-window", "-x", "100", "-y", "20")
+            terminal("respawn-pane", "-k", "/usr/bin/env", "-u", "TMUX", "-u", "TMUX_PANE",
+                     "LC_ALL=en_US.UTF-8", "tmux", "-N", "-S", self.socket,
+                     "attach-session", "-t", "=dotfiles-test")
+
+            def cells(row):
+                result, under, colour = [], False, None
+                for match in re.finditer(r"\x1b\[([0-9;]*)m|([^\x1b])", row.rstrip("\n")):
+                    if match[2] is not None:
+                        result.append((match[2], under, colour))
+                        continue
+                    codes = [int(n or 0) for n in match[1].split(";")]
+                    while codes:
+                        code = codes.pop(0)
+                        if code == 0:
+                            under, colour = False, None
+                        elif code in {4, 24}:
+                            under = code == 4
+                        elif code in {38, 48, 58}:
+                            count = 4 if codes[0] == 2 else 2
+                            if code == 58:
+                                colour = tuple(codes[1:count])
+                            del codes[:count]
+                        elif code == 59:
+                            colour = None
+                return result
+
+            def check(selected):
+                until = time.monotonic() + 2
+                while time.monotonic() < until:
+                    drawn = cells(terminal("capture-pane", "-p", "-e", "-N", "-S", "0", "-E", "0"))
+                    text = "".join(c[0] for c in drawn)
+                    expected = set()
+                    if selected:
+                        first = text.find(selected)
+                        expected.update(range(first, first + len(selected)))
+                    actual = {i for i, (_, underline, _) in enumerate(drawn) if underline}
+                    if "ALPHA" in text and "BETA" in text and actual == expected:
+                        self.assertTrue(all(drawn[i][2] == (246, 193, 119) for i in expected))
+                        self.assertIn(" ALPHA ", text)
+                        self.assertIn(" BETA ", text)
+                        return
+                    time.sleep(.02)
+                self.fail("native underline cells differ: " + repr((text, sorted(actual), sorted(expected))))
+
+            for inherited in ["", ",underscore"]:
+                self.tm("set", "-g", "window-status-current-style", "fg=#f6c177,bg=#1f1d2e" + inherited)
+                for window, name in zip(windows * 2, ["ALPHA", "BETA"] * 2):
+                    self.tm("select-window", "-t", window)
+                    check(name)
+            self.tm("set", "-g", "window-status-current-style", "fg=#f6c177,bg=#1f1d2e")
+            for state in ["done", "idle", "waiting", "working"]:
+                self.tm("set", "-w", "-t", windows[1], "@dotfiles-agent", dashboard.title_format("BETA", state))
+                self.tm("set", "-w", "-t", windows[1], "@dotfiles-agent-state", state)
+                check("BETA" if state == "working" else None)
 
     def test_native_title_and_monitor_expiry_preserve_only_stopped_state(self):
         self.tm("set-option", "-w", "@dotfiles-agent-ts", str(int(time.time())))

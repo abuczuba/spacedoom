@@ -37,7 +37,10 @@ SIGNATURE = ("#{W:#{?#{||:#{||:#{@workmux_status},#{P:#{@workmux_pane_status}#{@
              "#{window_id}|#{window_name}|#{P:#{pane_id}/#{pane_pid}/#{pane_dead}/"
              "#{pane_current_command}/#{@workmux_pane_status}/#{@dotfiles-agent-evidence}/#{@dotfiles-agent-ack};}"
              "#{?@dotfiles-agent," + EXPIRED + ",},}}")
-TITLE_SLOT = (" #{?#{&&:#{@dotfiles-agent},#{&&:#{>=:#{t/d:@dotfiles-agent-ts},0},"
+# The selected style can itself carry underscore. Clear it before the existing
+# padding; the working-title renderer owns the exact decorated cell range.
+TITLE_SLOT = ("#{?#{&&:#{window_active},#{==:#{@dotfiles-agent-state},working}},#[nounderscore#,us=default],}"
+              " #{?#{&&:#{@dotfiles-agent},#{&&:#{>=:#{t/d:@dotfiles-agent-ts},0},"
               "#{||:#{==:#{@dotfiles-agent-state},done},#{<:#{t/d:@dotfiles-agent-ts},900}}}},"
               "#{E:@dotfiles-agent},#W}#{?@workmux_status,,} ")
 
@@ -72,7 +75,11 @@ def title_format(title, state):
                 position = "#{==:" + clock + "," + str(i + offset) + "}"
                 style = "#{?" + position + ",#[fg=" + fg + "#,bg=" + bg + "]," + style + "}"
             parts.append(style + literal(char))
-        return "".join(parts) + restore
+        # Evaluate focus while tmux paints, so selection never waits for a
+        # lifecycle refresh. Decoration colour is independent of the shimmer.
+        underline = "#{?window_active,#[underscore#,us=#{@tmux-dotbar-fg-current}],}"
+        clear = "#{?window_active,#[nounderscore#,us=default],}"
+        return underline + "".join(parts) + clear + restore
     return text
 
 
