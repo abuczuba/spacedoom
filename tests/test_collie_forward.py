@@ -83,6 +83,50 @@ class ForwardingTests(unittest.TestCase):
             activity.collie_event(self.record, self.payload | {"session_id": "another-session"})
             run.assert_not_called()
 
+    def enable_sessions(self):
+        self.policy.pop("binding")
+        self.policy.update(sessions=[SID], socket=self.record["socket"])
+        self.write_policy()
+
+    def test_approved_uuid_recovers_through_a_fresh_verified_launch(self):
+        self.enable_sessions()
+        resumed = self.record | dict(pane="%88", boot="new-server:900", pid=700,
+                                     started="new-wrapper", child=701, child_started="new-client")
+        with patch.object(activity.subprocess, "run") as run:
+            activity.collie_event(resumed, self.payload)
+        run.assert_called_once()
+        self.assertEqual(json.loads(run.call_args.kwargs["input"])["session_id"], SID)
+        self.assertEqual(run.call_args.kwargs["env"]["COLLIE_MUX_ENDPOINT_TMUX"], self.record["socket"])
+
+    def test_sessions_require_the_configured_socket_and_exact_registered_uuid(self):
+        self.enable_sessions()
+        for changed_record, changed_payload in [
+                (self.record | {"socket": "/private/tmp/other.sock"}, self.payload),
+                (self.record | {"remote_session": "other-uuid"}, self.payload),
+                (self.record, self.payload | {"session_id": "other-uuid"})]:
+            with patch.object(activity.subprocess, "run") as run:
+                activity.collie_event(changed_record, changed_payload)
+                run.assert_not_called()
+
+    def test_invalid_or_ambiguous_session_lists_fail_closed(self):
+        self.enable_sessions()
+        for sessions in [None, [], SID, [SID, SID], ["../escape"], [None], [{}]]:
+            with self.subTest(sessions=sessions), patch.object(activity.subprocess, "run") as run:
+                self.policy["sessions"] = sessions
+                self.write_policy()
+                activity.collie_event(self.record, self.payload)
+                run.assert_not_called()
+
+    def test_sessions_do_not_bypass_existing_origin_validation(self):
+        self.enable_sessions()
+        context = dict(state=str(self.root), socket=self.record["socket"], pane="%1", token=self.record["token"])
+        with patch.object(activity, "lock", return_value=contextlib.nullcontext()), \
+                patch.object(activity, "private_record", return_value=self.record), \
+                patch.object(activity, "verified_origin", return_value=False), \
+                patch.object(activity, "collie_event") as forward:
+            activity.event(context, self.payload)
+        forward.assert_not_called()
+
     def test_auxiliary_unknown_and_pretool_events_are_absent(self):
         for key in ("agent_id", "subagent_id", "parent_session_id"):
             with patch.object(activity.subprocess, "run") as run:

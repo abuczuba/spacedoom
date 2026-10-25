@@ -33,8 +33,9 @@ COLLIE_CONFIG = Path.home() / ".config/cdev/collie.json"
 def collie_event(record, payload):
     """Optional advisory forwarding, after the existing origin/pane checks.
 
-    This opt-in names one exact launch. Collie rechecks its own native footer
-    and process generations; it never receives dashboard state or a decision.
+    Approved UUIDs can resume through fresh verified cdev launches. Collie
+    rechecks the native footer and process generations; no dashboard state or
+    permission decision is forwarded.
     """
     try:
         event = payload.get("hook_event_name")
@@ -46,11 +47,22 @@ def collie_event(record, payload):
         config = private_record(COLLIE_CONFIG)
         if config.get("enabled") is not True:
             return
-        binding = config["binding"]
-        fields = ("socket", "pane", "boot", "pid", "started", "child", "child_started", "remote_session")
-        if (set(binding) != set(fields) or any(binding[key] != record.get(key) for key in fields)
-                or payload.get("session_id") != binding["remote_session"]):
-            return
+        if "sessions" in config:
+            sessions = config["sessions"]
+            if (not isinstance(sessions, list) or not sessions
+                    or any(not isinstance(value, str) or str(uuid.UUID(value)) != value for value in sessions)
+                    or len(set(sessions)) != len(sessions)
+                    or config.get("socket") != record.get("socket")
+                    or payload.get("session_id") not in sessions
+                    or payload.get("session_id") != record.get("remote_session")):
+                return
+        else:
+            # Retain the accepted single-launch canary configuration for rollback.
+            binding = config["binding"]
+            fields = ("socket", "pane", "boot", "pid", "started", "child", "child_started", "remote_session")
+            if (set(binding) != set(fields) or any(binding[key] != record.get(key) for key in fields)
+                    or payload.get("session_id") != binding["remote_session"]):
+                return
         binary, profile = Path(config["binary"]), Path(config["profile"])
         if not binary.is_absolute() or not profile.is_absolute():
             return
@@ -64,7 +76,7 @@ def collie_event(record, payload):
                "LC_ALL": "C", "HERDR_PLUGIN_CONFIG_DIR": str(profile / "observer-config"),
                "COLLIE_PLUGIN_ROOT": str(binary.parent.parent),
                "COLLIE_STATE_DIR": str(profile / "state"), "COLLIE_MUX": "tmux",
-               "COLLIE_MUX_ENDPOINT_TMUX": binding["socket"], "COLLIE_TMUX_BIN": "/opt/homebrew/bin/tmux"}
+               "COLLIE_MUX_ENDPOINT_TMUX": record["socket"], "COLLIE_TMUX_BIN": "/opt/homebrew/bin/tmux"}
         metadata = {"hook_event_name": event, "session_id": payload["session_id"]}
         turn = payload.get("turn_id")
         if isinstance(turn, str) and len(turn) <= 128:
