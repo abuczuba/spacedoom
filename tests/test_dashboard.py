@@ -80,6 +80,15 @@ class DashboardTests(unittest.TestCase):
         config = (REPO / "configs/tmux/agent-dashboard.conf").read_text()
         self.assertIn("set -g @tmux-dotbar-window-status-format '" + dashboard.TITLE_SLOT + "'", config)
 
+    def test_phone_transport_is_absent_from_active_code_and_manifest(self):
+        self.assertFalse(hasattr(dashboard.Dashboard, "notify"))
+        self.assertFalse((REPO / "configs/tmux/pager.py").exists())
+        manifest = json.loads((REPO / "deploy/manifest.json").read_text())
+        self.assertNotIn("tmux/pager.py", {item["path"] for item in manifest["files"]})
+        for path in [REPO / "configs/tmux/tmux.conf", REPO / "configs/tmux/agent-dashboard.py"]:
+            self.assertNotIn("--pager-config", path.read_text())
+            self.assertNotIn("pager.json", path.read_text())
+
     def test_preview_palette_title_escaping_and_one_second_clock(self):
         for state in ["working", "done", "waiting", "idle"]:
             output = dashboard.title_format("a#{evil}\n'b", state)

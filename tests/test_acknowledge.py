@@ -1,21 +1,14 @@
-"""Private tmux, inert agents and synthetic lifecycle caches; no ntfy traffic."""
+"""Private tmux, inert agents and synthetic lifecycle caches."""
 import hashlib
-import importlib.util
 import json
 import os
 from pathlib import Path
 import time
 import unittest
-from unittest.mock import Mock
 
 import test_dashboard as fixtures
 
 dashboard, REPO = fixtures.dashboard, fixtures.REPO
-
-spec = importlib.util.spec_from_file_location("ack_pager", REPO / "configs/tmux/pager.py")
-pager = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(pager)
-
 
 @unittest.skipUnless(os.environ.get("DOTFILES_INTEGRATION") == "1", "private tmux tests")
 class AcknowledgeTests(unittest.TestCase):
@@ -113,25 +106,14 @@ class AcknowledgeTests(unittest.TestCase):
         self.assertIn("●", self.tm("display-message", "-p", "-t", a, dashboard.TITLE_SLOT))
         self.assertEqual([p["pane"] for p in dashboard.actionable(self.view.snapshot())], [b])
 
-    def test_ack_refresh_and_monitor_restart_do_not_replay_ntfy(self):
+    def test_ack_refresh_and_monitor_reinstall_preserve_lifecycle_evidence(self):
         pane, path = self.agent("agent")
-        config = self.root / "pager.json"
-        config.write_text('{"url":"https://ntfy.invalid/test-only"}')
-        config.chmod(0o600)
-        publisher = pager.Publisher(self.root / "state", self.socket, config)
-        now = int(time.time())
-        publisher.observe([], now=now - 5, spawn=False)
-        self.view.notify = lambda observed: publisher.observe(observed, now=now + 1, spawn=False)
+        original = path.read_bytes()
         self.view.install()
-        transport = Mock()
-        transport.publish.return_value = ("sent", False)
-        publisher.drain(snapshot=self.view.snapshot, transport=transport, now=lambda: now + 2)
         self.view.acknowledge(pane, self.event(pane))
         self.view.acknowledge(pane, self.event(pane))
         self.view.refresh()
-        publisher.drain(snapshot=self.view.snapshot, transport=transport, now=lambda: now + 3)
-        ledger = pager.private_json(publisher.path)
-        self.assertEqual(transport.publish.call_count, 1)
-        self.assertEqual(len(ledger["alerts"]), 1)
-        self.assertEqual(next(iter(ledger["alerts"].values()))["status"], "sent")
+        self.view.watch()
+        self.assertEqual(path.read_bytes(), original)
+        self.assertEqual(dashboard.actionable(self.view.snapshot()), [])
         self.assertEqual(self.view.snapshot()[0]["state"], "done")

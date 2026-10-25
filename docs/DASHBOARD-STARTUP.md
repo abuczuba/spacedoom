@@ -2,7 +2,7 @@
 
 An empty tmux server loads configuration before its first session exists. The
 old dashboard installer called `list-windows` then, failed, and never installed
-its session-created hook. Reconstructing tmux therefore lost monitoring/pager
+its session-created hook. Reconstructing tmux therefore lost monitoring
 activation and left the fallback n=new-window binding. This failure reproduces
 without the remote-resume repair or any user plugins.
 
@@ -19,7 +19,7 @@ plugins are inert fixtures; production theme acceptance is checked separately.
 Manual recovery after a successful preflight, when authorized (POSIX shell):
 
 ```sh
-python3 -B ~/.local/share/dotfiles-active/current/tmux/agent-dashboard.py install --socket /private/tmp/tmux-501/default --pager-config ~/.config/cdev/pager.json
+python3 -B ~/.local/share/dotfiles-active/current/tmux/agent-dashboard.py install --socket /private/tmp/tmux-501/default
 ```
 
 The installer does not reload tmux or restart agents. Existing runtime disable

@@ -66,7 +66,9 @@ class DashboardStartup(unittest.TestCase):
         self.assertIn(dashboard.MONITOR, self.tm('show-hooks', '-B', '-t', 'startup'))
         hook = self.tm('show-hooks', '-g', 'session-created')
         self.assertIn('watch --socket', hook)
-        self.assertIn('--pager-config', hook)
+        self.assertNotIn('--pager-config', hook)
+        self.assertFalse((self.config.parent / 'pager.py').exists())
+        self.assertNotIn('pager.json', self.config.read_text())
 
     def test_first_session_and_reconstructed_server_restore_one_monitor(self):
         self.start_server()
