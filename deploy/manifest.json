@@ -105,6 +105,22 @@
       "references": []
     },
     {
+      "source": "configs/codex/AGENTS.md",
+      "path": "codex/AGENTS.md",
+      "target": ".codex/AGENTS.md",
+      "component": "codex-instructions",
+      "syntax": "text",
+      "references": []
+    },
+    {
+      "source": "configs/fish/functions/cnew.fish",
+      "path": "fish/functions/cnew.fish",
+      "target": ".config/fish/functions/cnew.fish",
+      "component": "fish-cnew",
+      "syntax": "fish",
+      "references": []
+    },
+    {
       "source": "configs/fish/functions/cdev.fish",
       "path": "fish/functions/cdev.fish",
       "target": ".config/fish/functions/cdev.fish",
@@ -163,6 +179,9 @@
     }
   ],
   "dependencies": [
+    {
+      "command": "git"
+    },
     {
       "command": "tmux"
     },

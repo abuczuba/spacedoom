@@ -79,6 +79,44 @@ class CdevIntegration(unittest.TestCase):
         h.tm("new-window", "-d", "-n", "collision", "-c", str(other), "/bin/sleep 120")
         self.reject_unchanged(collision, "different or unverifiable")
 
+    def test_bare_names_use_dev_and_explicit_paths_keep_distinct_pins_and_reuse(self):
+        h = self.h
+        home_project = h.home / "dev/alpha"
+        home_project.mkdir(parents=True)
+        subprocess.run(["git", "init", "-q", "--template=", str(home_project)], check=True, capture_output=True)
+        (home_project / "nested").mkdir()
+        local_project = h.repo("alpha")
+        home_identity, local_identity = h.saved(home_project), h.saved(local_project)
+        self.assert_ok(h.cdev("alpha", cwd=local_project.parent))
+        self.assertEqual(h.log()[-1][1:5], ["resume", home_identity, "--cd", str(home_project)])
+        before = h.snapshot(), h.log()
+        for target, cwd in [(home_project, h.root), ("./alpha", home_project.parent),
+                            ("dev/alpha", h.home), (".", home_project), ("..", home_project / "nested")]:
+            self.assert_ok(h.cdev(target, cwd=cwd))
+        self.assertEqual((h.snapshot(), h.log()), before)
+        # A same-named repo in cwd is selected only by an explicit relative path.
+        h.tm("rename-window", "-t", h.window(home_project), "home-alpha")
+        self.assert_ok(h.cdev("./alpha", cwd=local_project.parent))
+        self.assertEqual(h.log()[-1][1:5], ["resume", local_identity, "--cd", str(local_project)])
+        pins = json.loads((Path(h.env["XDG_STATE_HOME"]) / "cdev/pins.json").read_text())["pins"]
+        self.assertEqual(pins[str(home_project)], home_identity)
+        self.assertEqual(pins[str(local_project)], local_identity)
+        before = h.snapshot(), h.log()
+        self.assert_ok(h.cdev("alpha", cwd=local_project))
+        self.assert_ok(h.cdev(cwd=local_project))
+        self.assertEqual((h.snapshot(), h.log()), before)
+
+    def test_missing_bare_name_does_not_fall_back_to_a_local_repository(self):
+        h = self.h
+        local = h.repo("local-only")
+        before = h.snapshot(), h.log()
+        result = h.cdev("local-only", cwd=local.parent)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(str(h.home / "dev/local-only"), result.stderr)
+        self.assertEqual((h.snapshot(), h.log()), before)
+        self.assert_ok(h.cdev("./local-only", cwd=local.parent))
+        self.assertEqual(h.log()[-1][1:3], ["--cd", str(local)])
+
     def test_generic_agent_and_mixed_or_unverifiable_roots_never_duplicate(self):
         h = self.h
         root = h.repo("generic")

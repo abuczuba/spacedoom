@@ -129,6 +129,58 @@ class DeploymentTests(unittest.TestCase):
         self.assertFalse(self.root.exists())
         self.assertFalse(self.original.is_symlink())
 
+    def test_global_instructions_and_cnew_migrate_and_restore_independently(self):
+        old, _ = self.first()
+        source_repo = Path(__file__).resolve().parents[1]
+        additions = [
+            ("configs/codex/AGENTS.md", "codex/AGENTS.md", ".codex/AGENTS.md", "codex-instructions", "text"),
+            ("configs/fish/functions/cnew.fish", "fish/functions/cnew.fish",
+             ".config/fish/functions/cnew.fish", "fish-cnew", "fish"),
+        ]
+        for source, path, target, component, syntax in additions:
+            copy = self.repo / source
+            copy.parent.mkdir(parents=True, exist_ok=True)
+            copy.write_bytes((source_repo / source).read_bytes())
+            self.manifest["files"].append(dict(source=source, path=path, target=target,
+                                               component=component, syntax=syntax, references=[]))
+        self.write_manifest()
+        instructions = self.home / ".codex/AGENTS.md"
+        instructions.parent.mkdir()
+        instructions.write_text("original personal instructions\n")
+        instructions.chmod(0o600)
+        config = self.home / ".codex/config.toml"
+        config.write_text("# preserved configuration fixture\n")
+        function = self.home / ".config/fish/functions/cnew.fish"
+        new = self.mutate("stage")
+        self.mutate("activate", new, old)
+        codex_backup = self.mutate("migrate", new, "codex-instructions")
+        fish_backup = self.mutate("migrate", new, "fish-cnew")
+        for source, path, target, _, _ in additions:
+            live = self.home / target
+            self.assertTrue(live.is_symlink())
+            self.assertEqual(live.resolve(), self.deployment.release_dir(new) / path)
+            self.assertEqual(live.read_bytes(), (source_repo / source).read_bytes())
+            self.assertEqual(live.stat().st_mode & 0o777, 0o444)
+        saved = self.root / "backups" / codex_backup / "files/.codex/AGENTS.md"
+        self.assertEqual(saved.read_text(), "original personal instructions\n")
+        self.assertEqual(saved.stat().st_mode & 0o777, 0o600)
+        for _ in range(2):
+            self.mutate("restore", codex_backup)
+        self.assertFalse(instructions.is_symlink())
+        self.assertEqual(instructions.read_text(), "original personal instructions\n")
+        self.assertEqual(instructions.stat().st_mode & 0o777, 0o600)
+        self.assertTrue(function.is_symlink())
+        self.assertEqual(config.read_text(), "# preserved configuration fixture\n")
+        with self.assertRaises(DeployError):
+            self.mutate("rollback", new)
+        for _ in range(2):
+            self.mutate("restore", fish_backup)
+        self.assertFalse(os.path.lexists(function))
+        self.assertEqual(self.deployment.current(), new)
+        self.mutate("rollback", new)
+        self.assertEqual(self.deployment.current(), old)
+        self.assertTrue(self.original.is_symlink())
+
     def test_cli_requires_approval_before_any_state_creation(self):
         result = subprocess.run([sys.executable, str(Path(deploy.__file__)), "--repo", str(self.repo),
                                  "--home", str(self.home), "--state-root", str(self.root), "stage"],

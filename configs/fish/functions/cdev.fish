@@ -5,12 +5,16 @@ function cdev --description 'Reuse or open a Git project in tmux: Doom left, Cod
         return 1
     end
     if test (count $argv) -gt 1
-        printf 'usage: cdev [PROJECT_DIRECTORY]\n' >&2
+        printf 'usage: cdev [NAME|PROJECT_DIRECTORY]\n' >&2
         return 2
     end
     set -l target .
     if test (count $argv) -eq 1
         set target "$argv[1]"
+        # Bare names always mean ~/dev/NAME. Use ./NAME for a local sibling.
+        if not string match -q '*/*' -- "$target"; and not contains -- "$target" . ..
+            set target "$HOME/dev/$target"
+        end
     end
     set -l root (command git -C "$target" rev-parse --show-toplevel 2>/dev/null)
     if test $status -ne 0; or test -z "$root"
