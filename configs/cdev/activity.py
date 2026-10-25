@@ -27,6 +27,53 @@ CONTEXT_ENV = "CDEV_ACTIVITY_CONTEXT"
 # A shared server does not inherit its attaching terminal's environment. This
 # account-private rendezvous is independent of either process's XDG variables.
 REMOTE_DIRECTORY = Path("/private/tmp") / ("dotfiles-cdev-" + str(os.getuid()))
+COLLIE_CONFIG = Path.home() / ".config/cdev/collie.json"
+
+
+def collie_event(record, payload):
+    """Optional advisory forwarding, after the existing origin/pane checks.
+
+    This opt-in names one exact launch. Collie rechecks its own native footer
+    and process generations; it never receives dashboard state or a decision.
+    """
+    try:
+        event = payload.get("hook_event_name")
+        if event not in {"SessionStart", "UserPromptSubmit", "PermissionRequest",
+                         "PostToolUse", "Stop", "SessionEnd"}:
+            return
+        if any(key in payload for key in ("agent_id", "subagent_id", "parent_session_id")):
+            return
+        config = private_record(COLLIE_CONFIG)
+        if config.get("enabled") is not True:
+            return
+        binding = config["binding"]
+        fields = ("socket", "pane", "boot", "pid", "started", "child", "child_started", "remote_session")
+        if (set(binding) != set(fields) or any(binding[key] != record.get(key) for key in fields)
+                or payload.get("session_id") != binding["remote_session"]):
+            return
+        binary, profile = Path(config["binary"]), Path(config["profile"])
+        if not binary.is_absolute() or not profile.is_absolute():
+            return
+        # No inherited production credentials, app-server environment or VAPID
+        # material. An empty, dedicated config directory avoids the bridge .env.
+        env = {"HOME": str(profile / "home"), "CODEX_HOME": str(profile / "codex"),
+               "XDG_CONFIG_HOME": str(profile / "xdg-config"),
+               "XDG_STATE_HOME": str(profile / "xdg-state"),
+               "XDG_CACHE_HOME": str(profile / "xdg-cache"), "TMPDIR": str(profile / "tmp"),
+               "PATH": "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin", "SHELL": "/bin/sh",
+               "LC_ALL": "C", "HERDR_PLUGIN_CONFIG_DIR": str(profile / "observer-config"),
+               "COLLIE_PLUGIN_ROOT": str(binary.parent.parent),
+               "COLLIE_STATE_DIR": str(profile / "state"), "COLLIE_MUX": "tmux",
+               "COLLIE_MUX_ENDPOINT_TMUX": binding["socket"], "COLLIE_TMUX_BIN": "/opt/homebrew/bin/tmux"}
+        metadata = {"hook_event_name": event, "session_id": payload["session_id"]}
+        turn = payload.get("turn_id")
+        if isinstance(turn, str) and len(turn) <= 128:
+            metadata["turn_id"] = turn
+        subprocess.run([str(binary), "beacon", "emit", "codex-native"],
+                       input=json.dumps(metadata), text=True, env=env, cwd=binary.parent.parent,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=.5)
+    except (OSError, ValueError, TypeError, KeyError, subprocess.TimeoutExpired):
+        pass  # Observation can fail; the existing dashboard and approval path continue.
 
 
 def process_identity(pid):
@@ -385,6 +432,7 @@ def event(context, payload):
                         "#{start_time}:#{pid}|#{pane_pid}")
         if identity != record.get("boot", "") + "|" + str(record.get("pid")):
             return
+        collie_event(record, payload)
         result = transition(record, payload, int(time.time()))
         if result is None:
             return
