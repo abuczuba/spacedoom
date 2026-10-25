@@ -440,12 +440,12 @@ def mark_editor_pane(root):
             return subprocess.check_output(['tmux', *args], text=True, timeout=2).rstrip('\n')
         if read('display-message', '-p', '-t', pane, '#{pane_pid}\t#{@cdev_root}') != str(os.getpid()) + '\t' + str(root):
             return
-        rows = [line.split('\t', 1) for line in read('list-panes', '-t', pane,
-                '-F', '#{pane_id}\t#{pane_start_command}').splitlines()]
-        editors = [row for row in rows if len(row) == 2 and row[0] != pane]
+        rows = [line.split('\t', 2) for line in read('list-panes', '-t', pane,
+                '-F', '#{pane_id}\t#{pane_pid}\t#{pane_start_command}').splitlines()]
+        editors = [row for row in rows if len(row) == 3 and row[0] != pane]
         if len(rows) != 2 or len(editors) != 1:
             return
-        target, command = editors[0]
+        target, pid, command = editors[0]
         args = shlex.split(command)
         if len(args) < 2 or args[0] != 'env' or not args[1].startswith('MACOSX_DEPLOYMENT_TARGET='):
             return
@@ -454,8 +454,9 @@ def mark_editor_pane(root):
                   and args[5:8] == ['client', '--project', str(root)] and args[8] == '--emacsclient')
         standalone = len(args) == 4 and Path(args[2]).name.lower() == 'emacs' and args[3] == '-nw'
         if client or standalone:
-            subprocess.run(['tmux', 'set-option', '-p', '-F', '-t', target, '@collie-role',
-                            'editor:#{pane_pid}:#{pane_start_command}'], check=True,
+            # Bind the inspected launch, so a respawn between read and write stays visible.
+            subprocess.run(['tmux', 'set-option', '-p', '-t', target, '@collie-role',
+                            'editor:' + pid + ':' + command], check=True,
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2)
     except (OSError, ValueError, subprocess.SubprocessError):
         return

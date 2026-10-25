@@ -83,6 +83,23 @@ class CdevIntegration(unittest.TestCase):
         self.assertTrue(h.tm('show-options', '-p', '-qv', '-t', editor, '@collie-role').strip())
         self.assertEqual(h.tm('display-message', '-p', '-t', editor, role).strip(), '')
 
+    def test_editor_respawn_between_inspection_and_marking_cannot_hide_a_shell(self):
+        h = self.h
+        wrapper = h.bin / 'tmux'
+        wrapper.write_text('#!/usr/bin/python3\nimport os,subprocess,sys\n'
+                          'args=sys.argv[1:]\n'
+                          'base=["/opt/homebrew/bin/tmux","-N","-S",' + repr(h.socket) + ']\n'
+                          'if args and args[0]=="set-option" and "@collie-role" in args:\n'
+                          ' target=args[args.index("-t")+1]\n'
+                          ' subprocess.run(base+["respawn-pane","-k","-t",target,"/bin/sleep","119"],check=True)\n'
+                          'os.execv(base[0],base+args)\n')
+        wrapper.chmod(0o755)
+        root = h.repo('editor-respawn-race')
+        self.assert_ok(h.cdev(root))
+        role = '#{?#{==:#{@collie-role},editor:#{pane_pid}:#{pane_start_command}},editor,}'
+        rows = h.tm('list-panes', '-t', h.window(root), '-F', role).splitlines()
+        self.assertEqual(rows, ['', ''])
+
     def test_concurrent_calls_and_same_name_collision(self):
         h = self.h
         root = h.repo("concurrent")
