@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shlex
 import socket
 import stat
 import struct
@@ -425,8 +426,44 @@ def report_launch_error(message):
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
+def mark_editor_pane(root):
+    """Record cdev's editor role, bound to this pane launch; never classify by cwd/title.
+
+    Kept in the stable launcher so already-loaded Fish functions gain the marker.
+    Failure leaves the pane visible and does not interfere with agent startup.
+    """
+    pane = os.environ.get('TMUX_PANE')
+    if not pane or not os.environ.get('TMUX'):
+        return
+    try:
+        def read(*args):
+            return subprocess.check_output(['tmux', *args], text=True, timeout=2).rstrip('\n')
+        if read('display-message', '-p', '-t', pane, '#{pane_pid}\t#{@cdev_root}') != str(os.getpid()) + '\t' + str(root):
+            return
+        rows = [line.split('\t', 1) for line in read('list-panes', '-t', pane,
+                '-F', '#{pane_id}\t#{pane_start_command}').splitlines()]
+        editors = [row for row in rows if len(row) == 2 and row[0] != pane]
+        if len(rows) != 2 or len(editors) != 1:
+            return
+        target, command = editors[0]
+        args = shlex.split(command)
+        if len(args) < 2 or args[0] != 'env' or not args[1].startswith('MACOSX_DEPLOYMENT_TARGET='):
+            return
+        client = (len(args) == 10 and args[2:4] == ['/usr/bin/python3', '-B']
+                  and Path(args[4]).parts[-2:] == ('cdev', 'doom-server.py')
+                  and args[5:8] == ['client', '--project', str(root)] and args[8] == '--emacsclient')
+        standalone = len(args) == 4 and Path(args[2]).name.lower() == 'emacs' and args[3] == '-nw'
+        if client or standalone:
+            subprocess.run(['tmux', 'set-option', '-p', '-F', '-t', target, '@collie-role',
+                            'editor:#{pane_pid}:#{pane_start_command}'], check=True,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2)
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return
+
+
 def launch(root, agent):
     selection = plan(root)  # Revalidate immediately before the child is started.
+    mark_editor_pane(root)
     if selection['mode'] == 'pinned':
         command = [agent, 'resume', selection['session'], '--cd', str(root)] + resume_transport(selection['session'])
         label = 'pinned session ' + selection['session']

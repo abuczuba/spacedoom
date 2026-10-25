@@ -64,6 +64,25 @@ class CdevIntegration(unittest.TestCase):
         self.assertEqual((h.snapshot(), h.log()), before)
         self.assertFalse(list(h.release.rglob("*.pyc")))
 
+    def test_editor_role_is_launch_bound_and_new_or_respawned_shells_stay_visible(self):
+        h = self.h
+        root = h.repo("role and quote's project")
+        self.assert_ok(h.cdev(root))
+        window = h.window(root)
+        role = '#{?#{==:#{@collie-role},editor:#{pane_pid}:#{pane_start_command}},editor,}'
+        rows = [line.split('|') for line in h.tm('list-panes', '-t', window,
+                '-F', '#{pane_id}|' + role).splitlines()]
+        self.assertEqual([row[1] for row in rows], ['editor', ''])
+        editor = rows[0][0]
+        # Ordinary panes do not inherit an editor role, even inside a cdev window.
+        shell = h.tm('split-window', '-d', '-P', '-F', '#{pane_id}', '-t', window,
+                     '/bin/sleep', '120').strip()
+        self.assertEqual(h.tm('display-message', '-p', '-t', shell, role).strip(), '')
+        # The old option may remain, but a different launch must be visible.
+        h.tm('respawn-pane', '-k', '-t', editor, '/bin/sleep', '119')
+        self.assertTrue(h.tm('show-options', '-p', '-qv', '-t', editor, '@collie-role').strip())
+        self.assertEqual(h.tm('display-message', '-p', '-t', editor, role).strip(), '')
+
     def test_concurrent_calls_and_same_name_collision(self):
         h = self.h
         root = h.repo("concurrent")
@@ -191,6 +210,8 @@ class CdevIntegration(unittest.TestCase):
         self.assert_ok(h.fish("CDEV_EDITOR_MODE=standalone cdev " + shlex.quote(str(root)), env=env))
         self.assertIn("|27.0|-nw", Path(h.env["CDEV_TEST_EDITOR_LOG"]).read_text())
         self.assertNotIn("--load", Path(h.env["CDEV_TEST_EDITOR_LOG"]).read_text())
+        role = '#{?#{==:#{@collie-role},editor:#{pane_pid}:#{pane_start_command}},editor,}'
+        self.assertEqual(h.tm('list-panes', '-t', h.window(root), '-F', role).splitlines(), ['editor', ''])
 
     def test_failed_agent_is_visible_never_retried_and_existing_panes_survive(self):
         h = self.h
