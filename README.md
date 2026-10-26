@@ -35,6 +35,7 @@ The interesting parts:
 [Install and adapt](docs/INSTALL.md) lists prerequisites and the actual commands.
 [Inventory](docs/INVENTORY.md) accounts for each live path and intentional exclusion.
 [Project workflow](docs/PROJECTS.md) explains new and upstream repositories.
+[Lifecycle evidence and limits](docs/ACTIVITY.md) describes the Codex overlay.
 
 ## Releases, not development symlinks
 
