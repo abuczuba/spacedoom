@@ -237,12 +237,12 @@ def shared_endpoint():
 
 
 @contextlib.contextmanager
-def server_connection(endpoint, *, retain=False):
+def server_connection(endpoint, *, retain=False, on_message=None):
     """Bounded setup RPCs; optionally retain and drain the setup subscription.
 
     The retained connection keeps invocation-local hooks loaded until the owned
-    CLI exits. Its reader discards data frames without decoding event contents;
-    it is transport housekeeping, never another lifecycle/status source.
+    CLI exits. The optional callback consumes native approval/resolution IDs;
+    other payloads are discarded. Hooks still establish working/stopped turns.
     """
     deadline = time.monotonic() + 5
     with socket.socket(socket.AF_UNIX) as connection:
@@ -286,6 +286,7 @@ def server_connection(endpoint, *, retain=False):
                                    bytes(c ^ mask[i % 4] for i, c in enumerate(body)))
 
             def drain():
+                message = None
                 try:
                     while True:
                         header = stream.read(2)
@@ -310,12 +311,28 @@ def server_connection(endpoint, *, retain=False):
                             if opcode == 9:
                                 send(body, 10)
                         else:
+                            if opcode in (1, 2):
+                                message = bytearray() if opcode == 1 and on_message else None
                             # Bound memory even for large/fragmented notifications.
                             while size:
                                 body = stream.read(min(size, 65536))
                                 if not body:
                                     return
                                 size -= len(body)
+                                if message is not None:
+                                    if len(message) + len(body) <= 1024 * 1024:
+                                        message.extend(body)
+                                    else:
+                                        message = None
+                            if first & 0x80:
+                                if message is not None:
+                                    try:
+                                        row = json.loads(message)
+                                        if isinstance(row, dict):
+                                            on_message(row)
+                                    except (ValueError, TypeError, KeyError, RuntimeError, OSError):
+                                        pass  # Evidence failure never controls the TUI.
+                                message = None
                 except OSError:
                     pass  # The advisory transport must never stop the CLI.
 
@@ -391,7 +408,7 @@ def configure_remote_activity(endpoint, identity, root, observer, adapter):
     # No global config/trust writes, policies, prompts, or history hydration.
     # Closing this subscription before the remote TUI attaches loses its hooks
     # on 0.164. Keep it scoped to the owned client's lifetime, not just the RPC.
-    with server_connection(endpoint, retain=True) as (request, connection):
+    with server_connection(endpoint, retain=True, on_message=observer.approval) as (request, connection):
         if sys.platform != 'darwin':
             raise CdevError('remote hook attribution requires macOS Unix peer credentials')
         backend = connection.getsockopt(0, 2)  # SOL_LOCAL / LOCAL_PEERPID

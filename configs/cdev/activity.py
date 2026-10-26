@@ -28,6 +28,8 @@ CONTEXT_ENV = "CDEV_ACTIVITY_CONTEXT"
 # account-private rendezvous is independent of either process's XDG variables.
 REMOTE_DIRECTORY = Path("/private/tmp") / ("dotfiles-cdev-" + str(os.getuid()))
 COLLIE_CONFIG = Path.home() / ".config/cdev/collie.json"
+APPROVAL_REQUESTS = {"item/commandExecution/requestApproval", "item/fileChange/requestApproval",
+                     "item/permissions/requestApproval"}
 
 
 def collie_event(record, payload):
@@ -292,6 +294,59 @@ def save(path, data):
             os.unlink(name)
 
 
+def approval_transition(record, message, now):
+    """Refine a known live turn using its native request/resolution stream.
+
+    PermissionRequest runs before review and has no request ID. It cannot tell
+    whether a human is still needed, or whether another reviewer already acted.
+    Only a server request establishes pending approval; its exact resolution
+    retires it. No prompt, decision text or tool arguments are retained.
+    """
+    if not isinstance(message, dict):
+        return None
+    params = message.get("params")
+    if (not record.get("approval_stream") or record.get("ended") or record.get("settled")
+            or not record.get("turn") or not isinstance(params, dict)
+            or params.get("threadId") != record.get("remote_session")
+            or params.get("threadId") != record.get("session")):
+        return None
+    method = message.get("method")
+    if method not in APPROVAL_REQUESTS | {"serverRequest/resolved"}:
+        return None
+    identity = message.get("id") if method in APPROVAL_REQUESTS else params.get("requestId")
+    if not (type(identity) is int and -(2**63) <= identity < 2**63
+            or isinstance(identity, str) and 0 < len(identity) <= 256):
+        return None
+    key = json.dumps(identity)  # Keep integer/string request IDs distinct.
+    requests = {k: dict(v) for k, v in record.get("approvals", {}).items()}
+    existing = requests.get(key)
+    if method in APPROVAL_REQUESTS:
+        turn, item = params.get("turnId"), params.get("itemId")
+        if (turn != record["turn"] or turn in record.get("retired", [])
+                or not isinstance(item, str) or not 0 < len(item) <= 256):
+            return None
+        value = dict(turn=turn, item=item, resolved=False)
+        # Resolved/early resolutions are tombstones. Conflicting reuse is
+        # ambiguous, never permission to clear or revive another request.
+        if existing is not None:
+            return None
+        requests[key] = value
+    else:
+        if existing and existing.get("resolved"):
+            return None
+        requests.pop(key, None)  # Retain tombstones by resolution order.
+        requests[key] = dict(existing or {}, resolved=True)
+    # Retain live requests and bounded tombstones, including across turns.
+    inactive = [k for k, v in requests.items() if v.get("resolved") or v.get("turn") != record["turn"]]
+    for old in inactive[:-64]:
+        del requests[old]
+    pending = [k for k, v in requests.items() if v.get("turn") == record["turn"] and not v.get("resolved")]
+    result = record | dict(approvals=requests, pending=pending,
+                           state="waiting" if pending else "working", stamp=now,
+                           sequence=record.get("sequence", 0) + 1)
+    return result
+
+
 def transition(record, payload, now):
     """Pure state machine: reject previous launch/session/turn and late events."""
     record = record.copy()
@@ -324,14 +379,15 @@ def transition(record, payload, now):
         pending = list(record.get("pending", []))
         name = payload.get("tool_name")
         name = name if isinstance(name, str) and re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", name) else "<unknown>"
-        if event == "PostToolUse" and name in pending:
+        if not record.get("approval_stream") and event == "PostToolUse" and name in pending:
             pending.remove(name)
         record.update(state="waiting" if pending else "working", pending=pending)
     elif event == "PermissionRequest":
-        record["state"] = "waiting"
-        name = payload.get("tool_name")
-        name = name if isinstance(name, str) and re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", name) else "<unknown>"
-        record["pending"] = (list(record.get("pending", [])) + [name])[-64:]
+        if not record.get("approval_stream"):
+            record["state"] = "waiting"
+            name = payload.get("tool_name")
+            name = name if isinstance(name, str) and re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", name) else "<unknown>"
+            record["pending"] = (list(record.get("pending", [])) + [name])[-64:]
     elif event in {"Stop", "Interrupt"}:
         record.update(state="done" if event == "Stop" else "idle", settled=True, pending=[])
     record.update(stamp=now, sequence=record.get("sequence", 0) + 1)
@@ -395,10 +451,40 @@ class Launch:
             with lock(self.state, self.socket):
                 row = private_record(self.path)
                 row.update(remote_session=session, backend=backend, backend_started=identity["started"],
-                           retired=retired)
+                           retired=retired, approval_stream=True)
                 save(self.path, row)
             save(path, {"context": json.loads(self.environment()[CONTEXT_ENV]), "ended": False,
                         "last_turn": None, "retired": retired})
+        self.remote_session, self.backend, self.backend_started = session, backend, identity["started"]
+
+    def approval(self, message):
+        """Called only by this launch's retained, kernel-verified connection."""
+        if not isinstance(message, dict) or message.get("method") not in APPROVAL_REQUESTS | {"serverRequest/resolved"}:
+            return
+        try:
+            with lock(self.state, self.socket):
+                record = private_record(self.path)
+                if (record.get("token") != self.token or record.get("ended")
+                        or record.get("pid") != os.getpid() or record.get("started") != self.started
+                        or record.get("remote_session") != self.remote_session
+                        or record.get("backend") != self.backend or record.get("backend_started") != self.backend_started):
+                    return
+                result = approval_transition(record, message, int(time.time()))
+                if result is None:
+                    return
+                child = process_identity(record["child"])
+                backend = process_identity(self.backend)
+                if (process_identity(os.getpid())["started"] != self.started
+                        or child["parent"] != os.getpid() or child["started"] != record.get("child_started")
+                        or child["command"] not in {"codex", "codex-cli"}
+                        or backend["started"] != self.backend_started or backend["command"] not in {"codex", "codex-cli"}
+                        or tmux(self.socket, "display-message", "-p", "-t", self.pane,
+                                "#{start_time}:#{pid}|#{pane_pid}") != record["boot"] + "|" + str(os.getpid())):
+                    return
+                save(self.path, result)
+            mark(self.socket, self.pane, self.token, self.token + ":" + str(result["sequence"]))
+        except (OSError, ValueError, RuntimeError, TypeError, KeyError, subprocess.TimeoutExpired):
+            pass  # Advisory evidence cannot affect Codex or its approval flow.
 
     def environment(self):
         context = dict(version=1, state=self.state, socket=self.socket, pane=self.pane,

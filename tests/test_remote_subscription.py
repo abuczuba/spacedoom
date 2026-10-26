@@ -80,7 +80,7 @@ class RemoteSubscriptionTests(unittest.TestCase):
                                      {'spawn-error': 1, 'interrupt': 130}.get(outcome, 0))
                 self.assertFalse(live)
                 self.assertEqual(events.count('close'), 1)
-                connect.assert_called_once_with(Path('/private/tmp/owned.sock'), retain=True)
+                connect.assert_called_once_with(Path('/private/tmp/owned.sock'), retain=True, on_message=observer.approval)
                 if outcome != 'setup-error':
                     self.assertGreater(events.index('close'), events.index('finish'))
                     if outcome != 'spawn-error':
@@ -98,7 +98,7 @@ class RemoteSubscriptionTests(unittest.TestCase):
         connect.assert_not_called()
         self.assertEqual(spawn.call_args.args[0], ['/owned/codex', '--cd', '/private/tmp/project'])
 
-    def websocket_case(self, close_from_peer, stalled=False):
+    def websocket_case(self, close_from_peer, stalled=False, callback=None):
         before_fds = set(os.listdir('/dev/fd'))
         with tempfile.TemporaryDirectory(prefix='df-remote-subscription-', dir='/private/tmp') as temp:
             endpoint = Path(temp) / 'peer.sock'
@@ -148,6 +148,12 @@ class RemoteSubscriptionTests(unittest.TestCase):
                             heartbeat.set()
                             self.assertIsNone(receive())
                         else:
+                            if callback is not None:
+                                for identity in (1, 2):
+                                    body = json.dumps({'method':'serverRequest/resolved',
+                                        'params':{'threadId':'fixture','requestId':identity}}).encode()
+                                    client.sendall(frame(1, body[:12], final=False))
+                                    client.sendall(frame(0, body[12:]))
                             # Data is discarded, never decoded as lifecycle text.
                             client.sendall(frame(1, b'not-json' * 140000, final=False))
                             client.sendall(frame(0, b'ignored fragment'))
@@ -170,7 +176,7 @@ class RemoteSubscriptionTests(unittest.TestCase):
                 peer = threading.Thread(target=serve, args=(listener,), daemon=True)
                 peer.start()
                 try:
-                    with cdev.server_connection(endpoint, retain=True) as (request, _):
+                    with cdev.server_connection(endpoint, retain=True, on_message=callback) as (request, _):
                         request(2, 'thread/resume', {'threadId': 'fixture', 'excludeTurns': True})
                         self.assertTrue(heartbeat.wait(3), errors)
                         if close_from_peer:
@@ -193,6 +199,15 @@ class RemoteSubscriptionTests(unittest.TestCase):
 
     def test_exit_unblocks_partial_frame_without_socket_or_reader_leaks(self):
         self.websocket_case(close_from_peer=False, stalled=True)
+
+    def test_fragmented_approval_messages_and_callback_failure_preserve_transport(self):
+        observed=[]
+        def callback(row):
+            observed.append(row)
+            if row['params']['requestId']==1:
+                raise RuntimeError('advisory callback unavailable')
+        self.websocket_case(close_from_peer=False, callback=callback)
+        self.assertEqual([r['params']['requestId'] for r in observed],[1,2])
 
 
 if __name__ == '__main__':
