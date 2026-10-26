@@ -1,0 +1,7 @@
+#+TITLE: ${1:todo inbox} #{1}
+#+DESCRIPTION: ${2:A place for throwing todos in to be sorted later.} #${2}
+#+AUTHOR: abucz
+#+LATEX_HEADER: \usepackage[margin=1in]{geometry}
+#+LATEX_HEADER: \usepackage{comment}
+
+$0

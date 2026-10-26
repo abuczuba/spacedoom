@@ -23,6 +23,11 @@
 **/secrets/
 **/credentials/
 **/auth.json
+**/identity.el
+**/custom.el
+**/fish_variables
+**/pins.json
+**/collie.json
 **/id_ed25519*
 **/id_rsa*
 **/*.pem
@@ -47,6 +52,10 @@
 **/Library/
 **/org/
 **/icloud/
+
+# Local publication/deployment evidence belongs outside this checkout.
+artifacts/
+evidence/
 
 # Backups/archives should not be imported into Git
 backups/

@@ -135,7 +135,8 @@ def manifest_check(value: dict) -> dict:
         raise DeployError("release.json is reserved for the release receipt")
     for item in value["files"]:
         identifier(item["component"])
-        if item["syntax"] not in {"tmux", "ghostty", "sh", "text", "python", "fish", "elisp", "plist"}:
+        if item["syntax"] not in {"tmux", "ghostty", "sh", "text", "python", "fish", "elisp", "plist",
+                                  "toml", "gitconfig", "zsh", "json"}:
             raise DeployError("Unknown syntax type")
         if any(ref not in paths for ref in item.get("references", [])):
             raise DeployError("Reference is missing from the complete release")

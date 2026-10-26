@@ -167,6 +167,275 @@
       "references": [
         "cdev/doom-server.py"
       ]
+    },
+    {
+      "source": "configs/doom/dashboard-faces.el",
+      "path": "doom/dashboard-faces.el",
+      "target": ".config/doom/dashboard-faces.el",
+      "component": "doom-config",
+      "syntax": "elisp",
+      "references": []
+    },
+    {
+      "source": "configs/doom/init.el",
+      "path": "doom/init.el",
+      "target": ".config/doom/init.el",
+      "component": "doom-config",
+      "syntax": "elisp",
+      "references": []
+    },
+    {
+      "source": "configs/doom/org.el",
+      "path": "doom/org.el",
+      "target": ".config/doom/org.el",
+      "component": "doom-config",
+      "syntax": "elisp",
+      "references": []
+    },
+    {
+      "source": "configs/doom/packages.el",
+      "path": "doom/packages.el",
+      "target": ".config/doom/packages.el",
+      "component": "doom-config",
+      "syntax": "elisp",
+      "references": []
+    },
+    {
+      "source": "configs/doom/simpleclip.el",
+      "path": "doom/simpleclip.el",
+      "target": ".config/doom/simpleclip.el",
+      "component": "doom-config",
+      "syntax": "elisp",
+      "references": []
+    },
+    {
+      "source": "configs/doom/snippets/org-mode/org-latex-block",
+      "path": "doom/snippets/org-mode/org-latex-block",
+      "target": ".config/doom/snippets/org-mode/org-latex-block",
+      "component": "doom-config",
+      "syntax": "text",
+      "references": []
+    },
+    {
+      "source": "configs/doom/snippets/org-mode/org-source-block",
+      "path": "doom/snippets/org-mode/org-source-block",
+      "target": ".config/doom/snippets/org-mode/org-source-block",
+      "component": "doom-config",
+      "syntax": "text",
+      "references": []
+    },
+    {
+      "source": "configs/doom/snippets/org-mode/phonemic",
+      "path": "doom/snippets/org-mode/phonemic",
+      "target": ".config/doom/snippets/org-mode/phonemic",
+      "component": "doom-config",
+      "syntax": "text",
+      "references": []
+    },
+    {
+      "source": "configs/doom/templates/new.org",
+      "path": "doom/templates/new.org",
+      "target": ".config/doom/templates/new.org",
+      "component": "doom-config",
+      "syntax": "text",
+      "references": []
+    },
+    {
+      "source": "configs/fish/conf.d/fzf.fish",
+      "path": "fish/conf.d/fzf.fish",
+      "target": ".config/fish/conf.d/fzf.fish",
+      "component": "fish-config",
+      "syntax": "fish",
+      "references": []
+    },
+    {
+      "source": "configs/fish/config.fish",
+      "path": "fish/config.fish",
+      "target": ".config/fish/config.fish",
+      "component": "fish-config",
+      "syntax": "fish",
+      "references": []
+    },
+    {
+      "source": "configs/fish/fish_plugins",
+      "path": "fish/fish_plugins",
+      "target": ".config/fish/fish_plugins",
+      "component": "fish-config",
+      "syntax": "text",
+      "references": []
+    },
+    {
+      "source": "configs/fish/functions/__fzf_cd.fish",
+      "path": "fish/functions/__fzf_cd.fish",
+      "target": ".config/fish/functions/__fzf_cd.fish",
+      "component": "fish-config",
+      "syntax": "fish",
+      "references": []
+    },
+    {
+      "source": "configs/fish/functions/__fzf_complete.fish",
+      "path": "fish/functions/__fzf_complete.fish",
+      "target": ".config/fish/functions/__fzf_complete.fish",
+      "component": "fish-config",
+      "syntax": "fish",
+      "references": []
+    },
+    {
+      "source": "configs/fish/functions/__fzf_complete_preview.fish",
+      "path": "fish/functions/__fzf_complete_preview.fish",
+      "target": ".config/fish/functions/__fzf_complete_preview.fish",
+      "component": "fish-config",
+      "syntax": "fish",
+      "references": []
+    },
+    {
+      "source": "configs/fish/functions/__fzf_find_file.fish",
+      "path": "fish/functions/__fzf_find_file.fish",
+      "target": ".config/fish/functions/__fzf_find_file.fish",
+      "component": "fish-config",
+      "syntax": "fish",
+      "references": []
+    },
+    {
+      "source": "configs/fish/functions/__fzf_get_dir.fish",
+      "path": "fish/functions/__fzf_get_dir.fish",
+      "target": ".config/fish/functions/__fzf_get_dir.fish",
+      "component": "fish-config",
+      "syntax": "fish",
+      "references": []
+    },
+    {
+      "source": "configs/fish/functions/__fzf_open.fish",
+      "path": "fish/functions/__fzf_open.fish",
+      "target": ".config/fish/functions/__fzf_open.fish",
+      "component": "fish-config",
+      "syntax": "fish",
+      "references": []
+    },
+    {
+      "source": "configs/fish/functions/__fzf_parse_commandline.fish",
+      "path": "fish/functions/__fzf_parse_commandline.fish",
+      "target": ".config/fish/functions/__fzf_parse_commandline.fish",
+      "component": "fish-config",
+      "syntax": "fish",
+      "references": []
+    },
+    {
+      "source": "configs/fish/functions/__fzf_reverse_isearch.fish",
+      "path": "fish/functions/__fzf_reverse_isearch.fish",
+      "target": ".config/fish/functions/__fzf_reverse_isearch.fish",
+      "component": "fish-config",
+      "syntax": "fish",
+      "references": []
+    },
+    {
+      "source": "configs/fish/functions/__fzfcmd.fish",
+      "path": "fish/functions/__fzfcmd.fish",
+      "target": ".config/fish/functions/__fzfcmd.fish",
+      "component": "fish-config",
+      "syntax": "fish",
+      "references": []
+    },
+    {
+      "source": "configs/fish/functions/fish_greeting.fish",
+      "path": "fish/functions/fish_greeting.fish",
+      "target": ".config/fish/functions/fish_greeting.fish",
+      "component": "fish-config",
+      "syntax": "fish",
+      "references": []
+    },
+    {
+      "source": "configs/fish/functions/fish_import_bash_aliases.fish",
+      "path": "fish/functions/fish_import_bash_aliases.fish",
+      "target": ".config/fish/functions/fish_import_bash_aliases.fish",
+      "component": "fish-config",
+      "syntax": "fish",
+      "references": []
+    },
+    {
+      "source": "configs/fish/functions/fish_prompt.fish",
+      "path": "fish/functions/fish_prompt.fish",
+      "target": ".config/fish/functions/fish_prompt.fish",
+      "component": "fish-config",
+      "syntax": "fish",
+      "references": []
+    },
+    {
+      "source": "configs/fish/functions/fp.fish",
+      "path": "fish/functions/fp.fish",
+      "target": ".config/fish/functions/fp.fish",
+      "component": "fish-config",
+      "syntax": "fish",
+      "references": []
+    },
+    {
+      "source": "configs/fish/functions/la.fish",
+      "path": "fish/functions/la.fish",
+      "target": ".config/fish/functions/la.fish",
+      "component": "fish-config",
+      "syntax": "fish",
+      "references": []
+    },
+    {
+      "source": "configs/fish/functions/ll.fish",
+      "path": "fish/functions/ll.fish",
+      "target": ".config/fish/functions/ll.fish",
+      "component": "fish-config",
+      "syntax": "fish",
+      "references": []
+    },
+    {
+      "source": "configs/aerospace/aerospace.toml",
+      "path": "aerospace/aerospace.toml",
+      "target": ".config/aerospace/aerospace.toml",
+      "component": "aerospace",
+      "syntax": "toml",
+      "references": []
+    },
+    {
+      "source": "configs/git/gitconfig",
+      "path": "git/gitconfig",
+      "target": ".gitconfig",
+      "component": "git-config",
+      "syntax": "gitconfig",
+      "references": []
+    },
+    {
+      "source": "configs/shell/zprofile",
+      "path": "shell/zprofile",
+      "target": ".zprofile",
+      "component": "shell",
+      "syntax": "zsh",
+      "references": []
+    },
+    {
+      "source": "configs/gh/config.yml",
+      "path": "gh/config.yml",
+      "target": ".config/gh/config.yml",
+      "component": "gh",
+      "syntax": "text",
+      "references": []
+    },
+    {
+      "source": "configs/fish/conf.d/colors.fish",
+      "path": "fish/conf.d/colors.fish",
+      "target": ".config/fish/conf.d/colors.fish",
+      "component": "fish-config",
+      "syntax": "fish",
+      "references": []
+    },
+    {
+      "source": "configs/doom/config.el",
+      "path": "doom/config.el",
+      "target": ".config/doom/config.el",
+      "component": "doom-config",
+      "syntax": "elisp",
+      "references": [
+        "doom/org.el",
+        "doom/clipboard.el",
+        "doom/dashboard-faces.el",
+        "doom/templates/new.org"
+      ]
     }
   ],
   "dependencies": [
@@ -241,7 +510,8 @@
   "empty_guards": [
     ".config/ghostty/config",
     "Library/Application Support/com.mitchellh.ghostty/config.ghostty",
-    "Library/Application Support/com.mitchellh.ghostty/config"
+    "Library/Application Support/com.mitchellh.ghostty/config",
+    ".aerospace.toml"
   ],
   "less_min_version": 668,
   "tmux_min_version": "3.8"

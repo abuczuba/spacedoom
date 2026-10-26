@@ -1,3 +1,7 @@
+The named terminal server/client integration is deployed. The complete personal configuration is now in `configs/doom/`; see [installation](INSTALL.md) and [current status](STATUS.md). The baseline discussion below records the original investigation; no existing daemon is replaced by source edits.
+
+---
+
 # Persistent Doom clients
 
 Activation is authorized for this milestone; STATUS.md records actual deployment.

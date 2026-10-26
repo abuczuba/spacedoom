@@ -1,0 +1,7 @@
+# Reviewed preference subset of my local Codex configuration.
+# Merge deliberately; this is NOT a replacement for a live trust/auth file.
+
+[features]
+hooks = true
+
+# Project trust, hook hashes, plugins, MCP endpoints and authentication are machine-local.

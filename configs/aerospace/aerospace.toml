@@ -1,0 +1,21 @@
+config-version = 2
+start-at-login = false
+default-root-container-layout = "tiles"
+gaps.inner.horizontal = 10
+gaps.inner.vertical = 10
+[mode.main.binding]
+ctrl-alt-h = "focus left"
+ctrl-alt-j = "focus down"
+ctrl-alt-k = "focus up"
+ctrl-alt-l = "focus right"
+ctrl-alt-shift-h = "move left"
+ctrl-alt-shift-j = "move down"
+ctrl-alt-shift-k = "move up"
+ctrl-alt-shift-l = "move right"
+ctrl-alt-1 = "workspace 1"
+ctrl-alt-2 = "workspace 2"
+ctrl-alt-3 = "workspace 3"
+ctrl-alt-shift-1 = "move-node-to-workspace 1"
+ctrl-alt-shift-2 = "move-node-to-workspace 2"
+ctrl-alt-shift-3 = "move-node-to-workspace 3"
+ctrl-alt-tab = "workspace-back-and-forth"

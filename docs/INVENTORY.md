@@ -1,116 +1,116 @@
-# Inspected sources and managed mapping
+# Live sources and deliberate exclusions
 
-**Agent-observed on 2026-10-21.** Sources are regular files, not symlinks. A
-targeted heuristic screen found no secret signatures in approved imports; it is
-not a proof of absence. No live files were replaced, linked or reloaded.
+Inspected on 2026-10-26. The manifest lists exact files, not whole directories.
+`docs/STATUS.md` records the active release and completed adoptions. Repository
+sources are authoritative; private runtime state and upstream dependencies are not
+copied into Git. A new task must check for intervening manual edits before work.
 
-| Live source | Development copy | Release-relative file |
+## Exact release mappings
+
+| Live path | Authoritative source | Component |
 |---|---|---|
-| ~/.tmux.conf | configs/tmux/tmux.conf | tmux/tmux.conf |
-| ~/.config/tmux/czuba-navigation.conf | configs/tmux/czuba-navigation.conf | tmux/czuba-navigation.conf |
-| ~/.config/tmux/cheatsheet.txt | configs/tmux/cheatsheet.txt | tmux/cheatsheet.txt |
-| new helper, not live | configs/tmux/show-shortcuts.sh | tmux/show-shortcuts.sh |
-| new pager keys, not live | configs/tmux/shortcuts.lesskey | tmux/shortcuts.lesskey |
-| ~/.config/ghostty/config.ghostty | configs/ghostty/config.ghostty | ghostty/config.ghostty |
+| `~/.tmux.conf` | `configs/tmux/tmux.conf` | `tmux` |
+| `~/.config/tmux/czuba-navigation.conf` | `configs/tmux/czuba-navigation.conf` | `tmux` |
+| `~/.config/tmux/cheatsheet.txt` | `configs/tmux/cheatsheet.txt` | `tmux` |
+| `~/.config/tmux/show-shortcuts.sh` | `configs/tmux/show-shortcuts.sh` | `tmux` |
+| `~/.config/tmux/shortcuts.lesskey` | `configs/tmux/shortcuts.lesskey` | `tmux` |
+| `~/.config/ghostty/config.ghostty` | `configs/ghostty/config.ghostty` | `ghostty` |
+| `~/.config/tmux/agent-dashboard.conf` | `configs/tmux/agent-dashboard.conf` | `tmux-dashboard` |
+| `~/.config/tmux/agent-dashboard.py` | `configs/tmux/agent-dashboard.py` | `tmux-dashboard` |
+| `~/.config/cdev/codex_session.py` | `configs/cdev/codex_session.py` | `cdev` |
+| `~/.config/cdev/activity.py` | `configs/cdev/activity.py` | `cdev` |
+| `~/.codex/AGENTS.md` | `configs/codex/AGENTS.md` | `codex-instructions` |
+| `~/.config/fish/functions/cnew.fish` | `configs/fish/functions/cnew.fish` | `fish-cnew` |
+| `~/.config/fish/functions/cdev.fish` | `configs/fish/functions/cdev.fish` | `fish-cdev` |
+| `~/.config/fish/functions/cdev-pin.fish` | `configs/fish/functions/cdev-pin.fish` | `fish-cdev` |
+| `~/.config/cdev/doom-server.py` | `configs/cdev/doom-server.py` | `doom-client` |
+| `~/.config/doom/cdev.el` | `configs/doom/cdev.el` | `doom-client` |
+| `~/.config/doom/clipboard.el` | `configs/doom/clipboard.el` | `doom-clipboard` |
+| `~/Library/LaunchAgents/local.dotfiles.doom.plist` | `configs/launchd/local.dotfiles.doom.plist` | `doom-service` |
+| `~/.config/doom/dashboard-faces.el` | `configs/doom/dashboard-faces.el` | `doom-config` |
+| `~/.config/doom/init.el` | `configs/doom/init.el` | `doom-config` |
+| `~/.config/doom/org.el` | `configs/doom/org.el` | `doom-config` |
+| `~/.config/doom/packages.el` | `configs/doom/packages.el` | `doom-config` |
+| `~/.config/doom/simpleclip.el` | `configs/doom/simpleclip.el` | `doom-config` |
+| `~/.config/doom/snippets/org-mode/org-latex-block` | `configs/doom/snippets/org-mode/org-latex-block` | `doom-config` |
+| `~/.config/doom/snippets/org-mode/org-source-block` | `configs/doom/snippets/org-mode/org-source-block` | `doom-config` |
+| `~/.config/doom/snippets/org-mode/phonemic` | `configs/doom/snippets/org-mode/phonemic` | `doom-config` |
+| `~/.config/doom/templates/new.org` | `configs/doom/templates/new.org` | `doom-config` |
+| `~/.config/fish/conf.d/fzf.fish` | `configs/fish/conf.d/fzf.fish` | `fish-config` |
+| `~/.config/fish/config.fish` | `configs/fish/config.fish` | `fish-config` |
+| `~/.config/fish/fish_plugins` | `configs/fish/fish_plugins` | `fish-config` |
+| `~/.config/fish/functions/__fzf_cd.fish` | `configs/fish/functions/__fzf_cd.fish` | `fish-config` |
+| `~/.config/fish/functions/__fzf_complete.fish` | `configs/fish/functions/__fzf_complete.fish` | `fish-config` |
+| `~/.config/fish/functions/__fzf_complete_preview.fish` | `configs/fish/functions/__fzf_complete_preview.fish` | `fish-config` |
+| `~/.config/fish/functions/__fzf_find_file.fish` | `configs/fish/functions/__fzf_find_file.fish` | `fish-config` |
+| `~/.config/fish/functions/__fzf_get_dir.fish` | `configs/fish/functions/__fzf_get_dir.fish` | `fish-config` |
+| `~/.config/fish/functions/__fzf_open.fish` | `configs/fish/functions/__fzf_open.fish` | `fish-config` |
+| `~/.config/fish/functions/__fzf_parse_commandline.fish` | `configs/fish/functions/__fzf_parse_commandline.fish` | `fish-config` |
+| `~/.config/fish/functions/__fzf_reverse_isearch.fish` | `configs/fish/functions/__fzf_reverse_isearch.fish` | `fish-config` |
+| `~/.config/fish/functions/__fzfcmd.fish` | `configs/fish/functions/__fzfcmd.fish` | `fish-config` |
+| `~/.config/fish/functions/fish_greeting.fish` | `configs/fish/functions/fish_greeting.fish` | `fish-config` |
+| `~/.config/fish/functions/fish_import_bash_aliases.fish` | `configs/fish/functions/fish_import_bash_aliases.fish` | `fish-config` |
+| `~/.config/fish/functions/fish_prompt.fish` | `configs/fish/functions/fish_prompt.fish` | `fish-config` |
+| `~/.config/fish/functions/fp.fish` | `configs/fish/functions/fp.fish` | `fish-config` |
+| `~/.config/fish/functions/la.fish` | `configs/fish/functions/la.fish` | `fish-config` |
+| `~/.config/fish/functions/ll.fish` | `configs/fish/functions/ll.fish` | `fish-config` |
+| `~/.config/aerospace/aerospace.toml` | `configs/aerospace/aerospace.toml` | `aerospace` |
+| `~/.gitconfig` | `configs/git/gitconfig` | `git-config` |
+| `~/.zprofile` | `configs/shell/zprofile` | `shell` |
+| `~/.config/gh/config.yml` | `configs/gh/config.yml` | `gh` |
+| `~/.config/fish/conf.d/colors.fish` | `configs/fish/conf.d/colors.fish` | `fish-config` |
+| `~/.config/doom/config.el` | `configs/doom/config.el` | `doom-config` |
 
-After approved migration, exact live paths link to the corresponding file under
-`~/.local/share/dotfiles-active/current/`. No whole-directory links. The manifest
-is `deploy/manifest.json`; a component migration affects only its enumerated files.
-The first proposed migration is tmux only (five files), not Ghostty.
+There are 51 payload files. The two `tmux-dashboard` helper aliases are optional
+and remain absent on this machine; tmux uses release-pinned helpers. All other
+targets are individually adopted after verified original-file backups.
 
-## Include graph and precedence
+## Additional maintained source and defaults
 
-- Ghostty primary: XDG config.ghostty, 81 lines; no config-file directives.
-  The macOS Application Support config.ghostty is empty; both legacy config
-  paths are absent. Preflight guards against new nonempty unmanaged overrides.
-- The preserved spacemacs-dark.ghostty profile exists but is not included;
-  it was screened but not imported or modified.
-- Main tmux config: 76 source lines. It runs the existing tmux-dotbar and TPM
-  scripts, then sources czuba-navigation.conf. Imported template changes only
-  that hardcoded home include to a release-pinned reference. Original redundant
-  renumber-windows on settings are preserved.
-- Navigation overlay: 44 source lines, including the original ? popup. Its
-  release-pinned popup and new reordering bindings are development changes.
-- Ctrl+F is configured as prefix, base-index is 1, mode-keys is vi, and
-  renumber-windows is on. Command-driven bindings send Ctrl+F plus the action.
-- Existing plugins remain external dependencies under ~/.tmux/plugins; their
-  caches/code were not imported or executed by validation.
-
-## Original source hashes (SHA-256)
-
-These identify the inspected originals, not the modified development copies.
-
-| Source | Hash |
+| Live location | Source / disposition |
 |---|---|
-| Ghostty primary | ce68f75b1a5da571a934a196eac1c116e70ad885450b13632217ab33c196cbf2 |
-| Main tmux | 66798d000a7d8d226c55eb38bd3accd3bdba5af8969908b8747329d3dd0523d1 |
-| Navigation | 0c3d9913351dce09ad4d2a511f0b92bcab6329e06310850e2a5b78f2d61753d1 |
-| Shortcuts text | 29bcf8f66ec4de60558982bd86f611b345dabad4826b0fbcce84e08cadb563bd |
+| `~/.config/workmux/config.yaml` | `configs/workmux/config.yaml`; exact reviewed reference, external live file; no workmux setup or settings migration |
+| `~/.codex/hooks.json` | `configs/codex/hooks.json`; seven unchanged workmux definitions, external live file; no global hook installation or trust changes |
+| `~/.codex/config.toml` | Only the maintained public hook-enable preference is in `configs/codex/config.example.toml`; mutable project/hook trust, UI state, plugins and private endpoints stay local |
+| `~/.config/ghostty/profiles/*.ghostty` | Both personal alternate profiles are tracked under `configs/ghostty/profiles/`; inactive and not included by the active primary config |
+| `~/.config/starship.toml` | Absent; Starship built-in defaults, initialized by Fish; see `configs/starship/README.md` |
+| `~/.config/fish/fish_variables` | Generated state remains external. The 27 portable color choices are captured in `configs/fish/conf.d/colors.fish`; fzf defaults are in its included integration |
+| Fish abbreviations / completions | No personal abbreviation definitions or completion files were found; application and Fish completions remain upstream |
+| `~/.config/doom/custom.el` | Generated writable Custom file stays external. Its only settings, hidden Org emphasis and disabled Spacemacs Org highlighting, are captured in `config.el` |
+| `~/.config/doom/identity.el` | Optional private mail identity, mode 600, deliberately excluded. `identity.example.el` documents the format; public defaults use the GitHub noreply address |
 
-The imported Ghostty primary remains byte-identical. No machine-specific private
-paths were retained in the redesigned reference. The original navigation include
-in main tmux was normalized into the release template.
+## Doom coverage
 
-## Adjacent sources inspected, not imported or changed
+`init.el`, `config.el`, `packages.el`, Org configuration, clipboard commands,
+dashboard faces, project-frame/workspace Lisp, the local simpleclip library,
+all three personal Org snippets and the auto-insert template are included. No
+custom module directory was present. `config.el` loads Org, clipboard and the
+dashboard helper normally; there is one implementation of each helper. The
+named-server launcher loads `cdev.el`; standalone Doom needs no extra `--load`
+for clipboard or appearance. `custom.el` remains writable for future local Custom
+and safe-local-variable choices, rather than becoming an immutable release file.
 
-- Fish config.fish (346 lines), conf.d/fzf.fish (63), and functions/cdev.fish
-  (130). No fish_user_key_bindings.fish is present. fzf's legacy bindings are a
-  configured default controlled by universal variables; the running shell was
-  not queried or restarted. No universal-variable dump was read.
-- Workmux config.yaml (161 lines): configured pane layout and Codex agent.
-  --help tried to initialize a log and failed inside the sandbox; it was not
-  retried against the real account outside the sandbox. CLI subcommands and
-  last-agent remain references, not verified functionality.
-- Doom config.el (183) and init.el (222): custom key declaration and enabled
-  modules only. No Org/iCloud content or live Emacs evaluation was accessed.
-  Conventional Doom bindings remain explicitly unverified.
-- AeroSpace aerospace.toml (21): key/action declarations only. Enabled state
-  was not queried; no enable/reload/edit was performed.
+## Kept external
 
-## Unverified runtime state
+- Upstream `~/.config/emacs`, installed modules/packages, generated profiles,
+  native compilation, environment captures, caches and workspace state. Their
+  presence/version is validated where required; source/package caches are not dotfiles.
+- Org/iCloud/Dropbox documents and symlinks, shell histories, old Doom/Fish/Ghostty
+  backups, browser/application data, Codex conversations, pins, runtime registrations,
+  auth files, trust decisions, Keychain material, SSH/GPG keys and rclone credentials.
+- `~/.config/cdev/collie.json`, `~/.config/collie/`, Collie binaries/service/pairing/push
+  state, Tailscale and its Serve configuration: independent installation, untouched.
+  The cdev handoff code is tracked; no phone transport is installed by dotfiles.
+- `~/.config/gh/hosts.yml`: authentication; only the nonsecret config/alias file is managed.
+- Vendor Riot LaunchAgent: application-managed. The only personal LaunchAgent is
+  the tracked Doom server; Collie has its own separately maintained agent.
+- `~/.local/bin` contains external Collie/Tailscale/Python symlinks. No personal
+  `~/bin` or `~/scripts` directory exists. Legacy aliases to older scripts are
+  retained as personal references, not evidence those programs are installed.
+- `~/.config/opencode` is empty. `doom-original` and dated Doom backups are
+  historical copies, not authoritative sources. No other shell startup files,
+  Vim/skhd/yabai configuration or global Git ignore file were found.
 
-The sandbox denied access to the existing default tmux socket. No unsandboxed
-live-socket retry occurred. Installed-default conflicts and candidate behavior
-were tested on separately approved private servers instead. Actual loaded
-plugins/bindings, display contrast in Ghostty and GUI watcher behavior await
-separately authorized activation and acceptance.
-
-No application repository, credential store, unrelated directory, Fish/Doom
-configuration deployment or macOS setting is part of this milestone.
-
-
-## 2026-10-22 milestone discovery and sanitized imports
-
-New relevant live sources inspected: ~/.config/fish/functions/cdev.fish,
-cdev-pin.fish; ~/.config/cdev/codex_session.py; ~/.config/doom/{init.el,config.el,
-packages.el}; selected Emacs/Doom/workspaces/persp/Ivy/Projectile source;
-~/.codex/hooks.json and only hook/feature settings from Codex config; workmux
-configuration/cache identity metadata. No authentication, private Org/custom
-content, unrelated projects or conversation bodies were read.
-
-Development imports: the two Fish functions and cdev Python helper; a sanitized
-module-selection snapshot at tests/fixtures/doom-init.el, and selected public
-terminal preferences at doom-config.el. The latter contains theme, fonts, line
-numbers and the inspected frame-focus hook, with no identity/Org/clipboard data.
-New Doom integration is an additive cdev.el, not a replacement user config.
-Generated-startup hashes in doom-runtime.json guard the disposable test fixture;
-no generated runtime or captured environment dump is committed.
-
-Installed versions observed: Codex 0.163.0, workmux 0.1.276, Fish 4.9.3,
-Emacs/emacsclient 31.1, Doom generated profile 2.2.4, tmux 3.8. Emacs commands
-resolve through Homebrew links into Emacs.app. Three active standalone Emacs
-processes were tmux children; current cdev pane processes were Python wrappers.
-No current pane had usable workmux status; one cache record belonged to an old
-server/pane. This is not proof of a shared-daemon routing root cause.
-
-The existing production n creates a window, c is standard new-window, Tab calls
-workmux last-agent; there are no local window title overrides. The current
-candidate uses n/c/Shift+N as documented in ACTIVITY.md and checks live conflicts
-before installation. Global workmux hooks/settings and Ghostty remain unchanged.
-
-The candidate Ghostty config has exactly one required forwarding change:
-Cmd+Shift+N sends Ctrl+F c (explicit hex 06/63) instead of Ctrl+F n. This preserves
-new-window semantics when n becomes attention. Live Ghostty remains unchanged.
-Legacy/display-only installation keeps n as new-window until companion adoption
-and verified reload. All other Ghostty forwards are compared with ec518f0 in the
-regression suite. This extra activation dependency must not be silently omitted.
+The tracked `fish_plugins` file records the installed fzf choice. Its ten source
+files exactly match the revision in `deploy/provenance.json`; update those through
+Git/release staging. Do not let a plugin manager mutate copied releases.

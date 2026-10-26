@@ -1,0 +1,8 @@
+[gpg]
+	format = ssh
+[user]
+	signingkey = /Users/czuba/.ssh/id_ed25519_git_signing.pub
+	name = Matthew Nicholas Czuba
+	email = 188480365+abuczuba@users.noreply.github.com
+[commit]
+	gpgsign = true

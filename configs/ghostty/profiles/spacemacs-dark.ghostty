@@ -1,0 +1,47 @@
+# Ghostty test profile — Spacemacs Dark / Czuba
+# Based on ~/.config/doom/config.el in the user's June 2026 backup,
+# plus the upstream spacemacs-theme dark palette.
+# Independent profile: no shell/tmux overrides, no startup commands.
+
+# Original Doom and backed-up Alacritty both used Source Code Pro.
+font-family = Source Code Pro
+font-family = FiraCode Nerd Font
+font-size = 12
+
+# Calm, near-borderless Emacs-inspired frame.
+macos-titlebar-style = hidden
+window-padding-x = 15
+window-padding-y = 15
+macos-option-as-alt = true
+scrollback-limit = 10000000
+
+# Exact Spacemacs Dark true-color foundation.
+background = #292b2e
+foreground = #b2b2b2
+selection-background = #444155
+selection-foreground = #e3dedd
+
+# Normal-mode Evil cursor in user's Doom config: DarkGoldenrod2.
+cursor-style = block
+cursor-style-blink = false
+cursor-color = #eead0e
+cursor-text = #292b2e
+
+# ANSI 16-color mapping, derived from the Spacemacs Dark color roles.
+# ANSI slots are a reasoned mapping, not an upstream Spacemacs terminal palette.
+palette = 0=#212026
+palette = 1=#f2241f
+palette = 2=#67b11d
+palette = 3=#b1951d
+palette = 4=#4f97d7
+palette = 5=#bc6ec5
+palette = 6=#2aa1ae
+palette = 7=#b2b2b2
+palette = 8=#545557
+palette = 9=#e0211d
+palette = 10=#86dc2f
+palette = 11=#dc752f
+palette = 12=#7590db
+palette = 13=#c56ec3
+palette = 14=#28def0
+palette = 15=#e3dedd

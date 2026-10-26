@@ -24,7 +24,7 @@ REPO = Path(__file__).resolve().parents[1]
 
 
 class DoomHarness:
-    def __init__(self, dashboard_faces=False):
+    def __init__(self, dashboard_faces=False, personal_config=False):
         self.temp = tempfile.TemporaryDirectory(prefix="df-doom-", dir="/private/tmp")
         self.root = Path(self.temp.name).resolve()
         self.home = self.root / "home"
@@ -59,6 +59,10 @@ class DoomHarness:
             config += b"\n" + (REPO / "configs/doom/dashboard-faces.el").read_bytes()
         private.joinpath("config.el").write_bytes(config)
         private.joinpath("clipboard.el").write_bytes((REPO / "configs/doom/clipboard.el").read_bytes())
+        if personal_config:
+            # Only PUBLIC repository configuration; ~/org and identity are
+            # resolved under the sanitized HOME. Never copy the live config.
+            shutil.copytree(REPO / "configs/doom", private, dirs_exist_ok=True)
         self.env = os.environ.copy()
         for key in ["TMUX", "TMUX_PANE", "DOOMPROFILE", "DOOMPROFILELOADFILE", "EMACSDIR",
                     "EMACS_SERVER_FILE", "EMACS_SOCKET_NAME", "ALTERNATE_EDITOR", "EMACSNATIVELOADPATH", "EMACSLOADPATH"]:

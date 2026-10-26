@@ -1,9 +1,9 @@
 # Recovery from macOS Terminal.app
 
-These are future recovery operations. Agents need explicit approval before
-changing an external file/pointer or reloading an application. Nothing here was
-run on the live workstation during development. Equivalent filesystem operations
-are tested in temporary homes, including macOS mv -h pointer replacement.
+Use the current task authority and exact recorded IDs. Repository edits alone
+do not authorize recovery. File/pointer recovery never implies an application
+reload or process restart. Equivalent filesystem operations are tested in private
+homes, including macOS mv -h pointer replacement.
 
 ## Get an independent shell
 
@@ -22,21 +22,21 @@ If Python and the repository tooling work:
 
 ```sh
 cd "$HOME/dev/dotfiles"
-python3 scripts/deploy.py plan
+python3.12 scripts/deploy.py plan
 ```
 
 After reviewing the current release and previous ID in deployment history,
 and with rollback approval:
 
 ```sh
-python3 scripts/deploy.py rollback --expect-current CURRENT_ID --approve
+python3.12 scripts/deploy.py rollback --expect-current CURRENT_ID --approve
 ```
 
 For initial migration failure, there may be no previous activation. Inspect the
 recorded `backups/BACKUP_ID/backup.json`, then obtain restoration approval:
 
 ```sh
-python3 scripts/deploy.py restore --backup BACKUP_ID --approve
+python3.12 scripts/deploy.py restore --backup BACKUP_ID --approve
 ```
 
 Both operations preserve processes and perform no reload. The restoration tool
@@ -89,7 +89,10 @@ cd "$HOME/.local/share/dotfiles-active"
 /bin/test -r releases/KNOWN_GOOD_ID/tmux/tmux.conf
 ```
 
-Choose an unused adjacent temporary name. Then:
+First ensure the known-good release contains every currently managed mapping.
+If it predates newly adopted files, restore those component backups first; a raw
+pointer flip must not leave new live links dangling. Choose an unused adjacent
+temporary name. Then:
 
 ```sh
 /bin/ln -s releases/KNOWN_GOOD_ID .current-recovery-UNIQUE_ID
@@ -156,15 +159,15 @@ termination is part of recovery.
 
 ## Activity dashboard and named Doom server
 
-The new milestone is repository-only. No new service/Fish/Ghostty backup IDs exist.
-Use the exact [milestone recovery sequence](MILESTONE-DEPLOYMENT.md) after any
-future approved migration. Do not substitute the original tmux backup for a
-feature rollback. Restore newly adopted Fish/service paths before rolling the
-shared pointer back to a release that lacks those mappings; the tool refuses
-otherwise. Files and pointer changes never imply a reload or a process restart.
-Disable the dashboard before restoring the Ghostty companion. Restore/reload
-the original Ghostty forwarding and confirm its n route before restoring c's
-former default; follow the staged bridge in the milestone plan.
+Dashboard and named Doom are deployed; STATUS records actual releases/backups.
+Restore newly adopted component files before rolling back to a release lacking
+their mappings. Preserve Ghostty's verified c forwarding when disabling attention;
+do not follow historical milestone commands as if they were current state.
+
+Doom identity is an external mode-600 override. Restore the original Doom config
+before retiring an identity sidecar created for an import, and remove it only if
+its exact recorded hash still matches. Generated Custom, Codex hooks/trust/auth,
+pins, workmux preferences and Collie state are not restored by a desktop rollback.
 
 Terminal.app with /bin/zsh -f remains sufficient to run the deployment tool,
 inspect the named service log and restore files. The service's manual foreground

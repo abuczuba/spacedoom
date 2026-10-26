@@ -25,7 +25,8 @@ BAD_COMPONENTS = {
     "credentials", "browser-profile", "bravesoftware", "icloud", "org",
     "backups", "sessions", "cookies", "resurrect",
 }
-BAD_NAMES = {"auth.json", ".env", "id_rsa", "id_ed25519", "credentials.json"}
+BAD_NAMES = {"auth.json", ".env", "id_rsa", "id_ed25519", "credentials.json",
+             "identity.el", "custom.el", "fish_variables", "pins.json", "collie.json", "rclone.conf"}
 BAD_SUFFIXES = {".pem", ".p12", ".pfx", ".key", ".kdbx", ".sqlite", ".db", ".zip"}
 FINDINGS = (
     ("private-key block", re.compile(rb"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----")),

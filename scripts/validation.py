@@ -82,7 +82,7 @@ def syntax_checks(directory: Path, manifest: dict) -> list[str]:
         elif kind == "elisp":
             with tempfile.TemporaryDirectory(prefix="dotfiles-elisp-parse-") as folder:
                 env = os.environ.copy() | {"HOME": folder, "XDG_CONFIG_HOME": folder}
-                expression = ("(with-temp-buffer (insert-file-contents " + json.dumps(str(path))
+                expression = ("(with-temp-buffer (emacs-lisp-mode) (insert-file-contents " + json.dumps(str(path))
                               + ") (check-parens) (goto-char (point-min)) "
                               "(condition-case nil (while t (read (current-buffer))) (end-of-file nil)))")
                 run(["emacs", "-Q", "--batch", "--eval", expression], env=env)
@@ -95,6 +95,28 @@ def syntax_checks(directory: Path, manifest: dict) -> list[str]:
             except (ValueError, plistlib.InvalidFileException, ExpatError) as exc:
                 raise ValidationError(f"LaunchAgent syntax: {item['path']}") from exc
             results.append(f"LaunchAgent syntax only: {item['path']}")
+        elif kind == "toml":
+            try:
+                import tomllib
+            except ImportError as exc:
+                raise ValidationError("TOML validation requires Python 3.11+; run with python3.12") from exc
+            try:
+                tomllib.loads(path.read_text())
+            except ValueError as exc:
+                raise ValidationError(f"TOML syntax: {item['path']}") from exc
+            results.append(f"TOML syntax only: {item['path']}")
+        elif kind == "json":
+            try:
+                json.loads(path.read_text())
+            except ValueError as exc:
+                raise ValidationError(f"JSON syntax: {item['path']}") from exc
+            results.append(f"JSON syntax only: {item['path']}")
+        elif kind == "gitconfig":
+            run(["git", "config", "--no-includes", "--file", str(path), "--list"])
+            results.append(f"Git configuration syntax only: {item['path']}")
+        elif kind == "zsh":
+            run(["/bin/zsh", "-f", "-n", str(path)])
+            results.append(f"Zsh syntax only: {item['path']}")
         elif kind == "tmux":
             tmux_files.append(path)
         elif kind == "ghostty":

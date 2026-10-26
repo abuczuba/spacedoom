@@ -1,0 +1,17 @@
+{
+  "upstream": "https://github.com/jethrokuan/fzf",
+  "commit": "479fa67d7439b23095e01b64987ae79a91a4e283",
+  "license": "MIT",
+  "files": {
+    "configs/fish/conf.d/fzf.fish": "bbf547ed601bd4722570e596136aa3354893c68743bb02c9b5c8b8fc6ca3f86a",
+    "configs/fish/functions/__fzf_parse_commandline.fish": "6476eaaedc22ffaaa7d7ac623373bf655458482b5d4215969ed1ae6bac1a82e8",
+    "configs/fish/functions/__fzf_reverse_isearch.fish": "4773d231d728dbe0f4336209990507ce6841509685afe2faac767e022651fae5",
+    "configs/fish/functions/__fzf_complete.fish": "0e20fbd1226b92b4f984ccf3d189674fd5e875545bcef86abff8a3b5aacd8b97",
+    "configs/fish/functions/__fzf_get_dir.fish": "03b6565ec3f04a96417e52acc6b926cf64dfcf56dbdf0ff4cb29b2660acf1348",
+    "configs/fish/functions/__fzf_cd.fish": "8fddc4f3cbf5331796ec7a7f6e7e7b7fc7aab5291e1108b745d7ba2eed0976fb",
+    "configs/fish/functions/__fzfcmd.fish": "fcc64469e79b09d4134cfb1efe40a254476d1ed228a5fc405398ff5233d39806",
+    "configs/fish/functions/__fzf_open.fish": "c5938d413b2c0c40dbd50a7df46924df141f4a85d0c4adbf33c0b9f26139ff5f",
+    "configs/fish/functions/__fzf_complete_preview.fish": "d4938bdc4c570aed44d9071141eb7c5c8be86411b4185159af46bfbd2f414f06",
+    "configs/fish/functions/__fzf_find_file.fish": "86990e0a85fd462bc708a45a1816e301f801195c6c926b756a08373cb39aa0da"
+  }
+}

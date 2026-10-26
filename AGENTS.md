@@ -6,12 +6,12 @@ Maintain a reproducible, minimal, keyboard-centric macOS environment. The
 canonical development source is `~/dev/dotfiles`. Repository edits and commits
 have **no authority to change the running workstation**.
 
-Current development scope: Ghostty/tmux, the cdev Fish functions, an advisory
-Codex activity observer, and a named persistent Doom server/client integration.
-Production tmux has passed user-reported physical acceptance. Broad new milestone
-features require approval; routine bounded repairs use the standing policy below.
-Never alter global Codex hooks, workmux settings or authentication. AeroSpace
-and unrelated Fish/Doom configuration still require a separate task. Application
+Maintained sources include Doom, Fish, Ghostty, tmux, AeroSpace, Git, shell
+utilities, Codex/cdev and the named Doom server integration. Broad new features
+require approval; routine bounded repairs use the standing policy below.
+Global Codex hooks, workmux settings and authentication remain external unless
+their exact migration is explicitly authorized; reference copies grant no authority.
+Collie is an independent installation, not part of this repository. Application
 repositories, including Tailscale, private-ai-ops-lab, JobApply and pluckd, are out
 of scope. Do not spawn agents or workmux worktrees without an approved use case.
 
@@ -119,6 +119,8 @@ any release, backup, migration, activation or reload operation.
    and nearby regressions. Run the full suite only for cross-cutting changes,
    relevant failures or an explicit requirement. Avoid repetitive audits and
    elaborate reports; record the useful evidence once.
+   Use Python 3.11+ (normally python3.12) for the complete manifest's TOML checks.
+   Never run native authentication/trust or package/service setup from tests.
 3. Review/stage the intended files, run preflight and staged whitespace checks,
    inspect the staged diff, then make the authorized local commit. Never bypass a
    failed hook or silently disable signing.

@@ -1,3 +1,7 @@
+Current implementation: eight stable definitions remain user-trusted. Codex 0.164.0 remote resumes retain their native setup connection; exact approval resolution is covered in [APPROVAL-STATE.md](APPROVAL-STATE.md). Historical discovery and review records below do not authorize repeating trust or installation.
+
+---
+
 # Production verification update — 2026-10-22
 
 The e38e18d registration is now deployed. All eight hashes/trust entries persist

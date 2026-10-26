@@ -1,0 +1,11 @@
+# Appearance
+theme = Rose Pine
+font-family = FiraCode Nerd Font
+font-size = 12
+window-padding-x = 15
+window-padding-y = 15
+macos-titlebar-style = transparent
+
+# Terminal behavior
+macos-option-as-alt = true
+scrollback-limit = 10000000
