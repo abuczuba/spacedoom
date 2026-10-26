@@ -47,7 +47,7 @@ Do not run installation commands as a regression test on a working home.
 
 ```sh
 mkdir -p ~/dev
-git clone https://github.com/abuczuba/dotfiles.git ~/dev/dotfiles
+git clone https://github.com/abuczuba/spacedoom.git ~/dev/dotfiles
 cd ~/dev/dotfiles
 python3.12 scripts/deploy.py check
 python3.12 scripts/deploy.py plan

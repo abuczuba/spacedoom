@@ -1,10 +1,16 @@
-# Publication review: abuczuba/dotfiles
+# Publication review: abuczuba/spacedoom
 
-The canonical repository is `~/dev/dotfiles`, branch `main`. GitHub account
-`abuczuba` is authenticated. The target repository returned 404 on 2026-10-26;
-no repository or remote has been created. Public creation and pushing are the
-remaining explicit owner gate. No separate source repository, history rewrite,
-force-push, service change or Collie PR is part of publication.
+The canonical local source remains `~/dev/dotfiles`. The existing public
+`abuczuba/spacedoom` repository is the publication target. Its four original
+commits, ending at `2751a0855b9835ffacce15f64254bfa510eca606`, are connected to
+our 30 signed commits ending at `c845231` by a signed merge. Neither history is
+rewritten. The merge deliberately retains the modern tree after comparing every
+old Doom source, snippet and template; no useful customization is missing.
+Original `master` stays intact and `main` becomes the default branch.
+
+The accidentally created empty `abuczuba/dotfiles` repository is outside this
+publication and remains untouched. No workstation deployment accompanies this
+Git integration.
 
 ## What will become public
 
@@ -28,7 +34,7 @@ git log --format='%H %aN <%aE>' main
 git remote -v
 ```
 
-Only `main` is intended for the push. There are no tags or other branch refs.
+Only integrated `main` is intended for the push. Original `master` remains unchanged.
 The final review receipt records the exact tip/tree and signature results after
 the documentation commit; future changes require another scan before publishing.
 
@@ -40,7 +46,9 @@ keys, notification topics, private network hostnames, sensitive state paths or
 binary exports were found. Manual review additionally checked imports, ignored
 files, old pager code and documentation. The private Doom email and the five
 current production conversation UUID pins were compared without printing them;
-none appears in tracked history. This is a heuristic plus source review, not a
+none appears in the modern 30-commit history. Original spacedoom history retains
+its already-public legacy personal email identities; those are intentional
+public metadata, not credentials. This is a heuristic plus source review, not a
 mathematical guarantee that no private fact exists.
 
 Excluded: authentication/Keychain/SSH or GPG key material, rclone config, Collie
@@ -69,27 +77,20 @@ are machine-specific limits, documented in INSTALL. Cloning does not install
 packages, enable services, grant hook trust or transmit private data. Linux-only
 legacy helpers are preserved, not advertised as tested macOS programs.
 
-## Exact publication operations — not executed
+## Authorized publication operations
 
-After approving the exact final HEAD and the intentional metadata above:
+After the combined-history scan, signature checks and clean-checkout tests:
 
 ```sh
 cd "$HOME/dev/dotfiles"
-# Require the reviewed clean state and rerun the history scan.
-git status --short
-python3.12 scripts/publication_audit.py
-# Create an EMPTY public repository; do not initialize another README/history.
-gh repo create abuczuba/dotfiles --public --description "My macOS dotfiles: Doom Emacs, Fish, Ghostty, tmux, AeroSpace and Codex"
-git remote add origin git@github.com:abuczuba/dotfiles.git
-git push --dry-run origin main
-git push -u origin main
-# Verify the public target, branch and exact remote commit.
-gh repo view abuczuba/dotfiles --json nameWithOwner,visibility,defaultBranchRef
-git ls-remote origin refs/heads/main
+git push --dry-run origin main:refs/heads/main
+git push -u origin main:refs/heads/main
+gh repo edit abuczuba/spacedoom --default-branch main
+gh repo view abuczuba/spacedoom --json nameWithOwner,visibility,defaultBranchRef
+git ls-remote origin refs/heads/main refs/heads/master
 ```
 
-No `--mirror`, `--all`, force push, GitHub secrets, release artifacts or private
-runtime files are included. SSH push authentication has not been exercised
-against a nonexistent repository; use the already-configured credentials and
-stop for review if new authentication/security changes are needed. Local SSH
-signature verification is separate from GitHub's displayed Verified badge.
+Recheck original master immediately before pushing. No force push, branch
+removal, tags, `--all`, `--mirror`, runtime files or deployment artifacts are
+included. Existing authenticated GitHub CLI credentials are used without creating
+tokens. Local SSH signature verification and GitHub's Verified badge are separate.

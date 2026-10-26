@@ -35,7 +35,8 @@ was necessary on this workstation.
   is claimed for source consolidation; that runtime payload is unchanged.
 - Privacy scanning includes all Git objects/history; private Doom email and all
   five current production pins are absent. Full publication findings are in
-  [PUBLICATION.md](PUBLICATION.md). No push, remote or public repository exists.
+  [PUBLICATION.md](PUBLICATION.md). The canonical publication target is the existing
+  public `abuczuba/spacedoom` repository.
 
 ## New adoption backups
 
@@ -62,6 +63,10 @@ normal repository tool remain sufficient if temporary test evidence is gone.
 
 The complete dated rollout record is preserved in
 [history/WORKSTATION-2026-10.md](history/WORKSTATION-2026-10.md).
-The next action is **owner approval to create the public abuczuba/dotfiles
-repository and push the signed main history**. No further workstation change is
-required for publication.
+Publication integration preserves the 30 modern signed commits and all four
+original spacedoom commits without rewriting either history. The modern source
+tree supersedes the old root-level Doom duplicates; their useful customizations,
+snippets, template and simpleclip are already present under `configs/doom`.
+Only publication documentation changes in this integration; all deployment
+payloads remain byte-identical. Publication does not activate a workstation release.
+The original `master` is retained; the integrated branch is `main`.

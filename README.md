@@ -1,6 +1,7 @@
-# dotfiles
+# spacedoom
 
-My terminal-first macOS setup: Doom Emacs with Evil and a Spacemacs Dark theme,
+Originally my Spacemacs-inspired Doom Emacs configuration; now my complete
+terminal-first macOS setup: Doom Emacs with Evil and a Spacemacs Dark theme,
 Fish, Ghostty, tmux and AeroSpace. This is the configuration I use, including
 some old Linux aliases and project helpers that are useful mainly to me.
 
