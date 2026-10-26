@@ -1,3 +1,27 @@
+# Production verification update — 2026-10-22
+
+The e38e18d registration is now deployed. All eight hashes/trust entries persist
+across fresh and resumed ordinary cdev launches; actual production working,
+stopped, permission, cancellation, concurrent attribution and termination checks
+passed alongside the unchanged workmux hooks. See
+[DASHBOARD-ACCEPTANCE.md](DASHBOARD-ACCEPTANCE.md). Physical acceptance remains
+pending. Other CLI versions/shared-server topologies remain unverified. Historical
+repair/isolated-gate descriptions below are retained; do not repeat hook trust.
+
+---
+
+# Acceptance update — 2026-10-22
+
+The user reviewed the eight hooks, and actual ordinary-cdev delivery now passes
+on installed Codex 0.163.0: working, stopped, genuine approval requests, concurrent
+pane attribution, repeated-launch hash/trust reuse and termination cleanup.
+See [HOOK-ACCEPTANCE.md](HOOK-ACCEPTANCE.md). Production remains unchanged and
+requires its own native review under the [new rollout proposal](DASHBOARD-PHASE4.md).
+The original repair rationale and pre-acceptance limits are preserved below;
+remote/shared-server behavior and other versions remain unverified.
+
+---
+
 # Stable Codex lifecycle registration — 2026-10-22
 
 Repository repair candidate; no live configuration, release or trust changes.

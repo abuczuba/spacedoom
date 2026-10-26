@@ -8,8 +8,8 @@ have **no authority to change the running workstation**.
 
 Current development scope: Ghostty/tmux, the cdev Fish functions, an advisory
 Codex activity observer, and a named persistent Doom server/client integration.
-Production tmux has passed user-reported physical acceptance. New milestone
-features remain repository candidates until individually approved activation.
+Production tmux has passed user-reported physical acceptance. Broad new milestone
+features require approval; routine bounded repairs use the standing policy below.
 Never alter global Codex hooks, workmux settings or authentication. AeroSpace
 and unrelated Fish/Doom configuration still require a separate task. Application
 repositories, including Tailscale, private-ai-ops-lab, JobApply and pluckd, are out
@@ -48,12 +48,19 @@ Allowed without additional approval within the authorized project scope:
   from a process name or kill a discovered existing Emacs/Codex process.
 - Make appropriately scoped local commits after reviewing the staged changes,
   running `python3 scripts/preflight.py` and `git diff --cached --check`.
+- For a requested bounded, reversible change to already-managed dotfiles,
+  complete focused tests, local commits, clean-release staging, backups,
+  activation, canary checks and documented rollback using the existing tooling.
+  This standing user authorization (2026-10-25) removes routine intermediate
+  approval gates. Deploy only the requested change; exclude unrelated pending
+  work. A commit or repository edit still never triggers deployment automatically.
 
 Explicit, operation-specific user approval is required for:
 
-- Writing/staging a release outside the repository or temporary test directories.
-- Backing up, migrating or replacing live configuration; changing any symlink
-  outside the repository; activating a release, rolling back or restoring files.
+- Broad/global changes, new live migrations or managed paths, and changes outside
+  the requested bounded scope. Unexplained configuration drift, security or
+  authentication changes, unexpected production impact and deployments without
+  a verified safe rollback are substantive boundaries; stop and request review.
 - Reloading/restarting applications, terminating processes, or modifying live
   tmux sessions, panes or windows.
 - Installing, bootstrapping, kickstarting or unloading a persistent LaunchAgent;
@@ -64,9 +71,12 @@ Explicit, operation-specific user approval is required for:
   or services; destructive operations; work outside this project's scope.
 - Changing Git remotes/configuration, pushing or publishing.
 
-Approval covers only the operations explicitly included. A consolidated user
-approval may cover implementation, commit, staging and deployment together;
-continue those authorized steps without routine confirmation. A tool's `--approve`
+Standing authorization applies only to the requested bounded scope. A consolidated
+user approval may additionally cover implementation, commit, staging and deployment;
+continue authorized steps without routine confirmation. After an unexplained
+production failure, investigate and validate its cause before another attempt.
+Test the actual regression first; classify a permission fixture that generated
+no request separately from a demonstrated lifecycle failure. A tool's `--approve`
 flag is an accident guard, **not evidence of user consent**. Never auto-deploy/reload from Git hooks,
 shell startup, tests, background jobs or an agent finishing its task. These rules
 supplement actual Codex sandbox/approval enforcement; do not weaken or bypass it.
@@ -95,6 +105,10 @@ any release, backup, migration, activation or reload operation.
 
 1. Establish the baseline, bounded behavior and exact files. Distinguish source
    inspection, isolated tests and live acceptance; do not describe plans as tests.
+   At the start of each new development task, compare relevant live dotfiles,
+   managed links and deployment state with the last accepted baseline and repository.
+   Check for the user's intervening manual edits and preserve/reconcile them before
+   implementation; never assume recorded status still describes the live workstation.
 2. Make minimal repository changes; validate applicable syntax, dependencies,
    references and behavior without executing user plugin/startup code in tests.
    The approved Doom integration fixture may load installed Doom libraries with
@@ -110,8 +124,8 @@ any release, backup, migration, activation or reload operation.
    failed hook or silently disable signing.
 4. For deployment, show the exact candidate release, all currently managed paths
    affected by the shared pointer, dependency/drift checks, backups, failure plan,
-   rollback target and reload effects. Proceed if that operation is already
-   explicitly authorized; ask only at a new boundary or unexpected material drift.
+   rollback target and reload effects. Proceed under the bounded standing policy
+   or applicable consolidated authorization; ask only at a substantive boundary.
 5. Initial migration backs up each exact target outside this repo, preserving
    content and modes, before any live replacement. Multiple path replacements
    are not jointly atomic. An interrupted migration requires explicit recovery.

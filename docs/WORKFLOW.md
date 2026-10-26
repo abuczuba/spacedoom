@@ -1,17 +1,121 @@
+# Current production: transport-free dashboard — 2026-10-25
+
+Signed `c8bd5fa` is active in `20261025T063110.488579Z-723f7740`. The ntfy
+transport and its private config/state are removed; shared dashboard/status/
+attention behavior and the deployed project workflow remain intact. No phone
+alerts from production agents are expected until Collie is connected separately.
+See STATUS.md for acceptance and transport-free rollback. Old pager/release
+handoffs below are historical; do not recreate their retired destination config.
+
+---
+
+# Current execution policy and remote-resume repair — 2026-10-25
+
+Requested bounded, reversible repairs to existing managed dotfiles are authorized
+through tests, commit, staging, activation, canary and documented rollback without
+routine intermediate approval gates. Broad/global changes, new migrations,
+security/authentication changes, unexplained drift, destructive operations,
+unexpected production impact or missing safe rollback still require review.
+Keep sandbox/trust enforcement, exact drift checks, immutable releases, existing
+sessions and unrelated pending work protected. Never retry an unexplained
+production failure before investigating and validating its cause. Git and shell
+startup still never trigger deployment automatically.
+
+Signed d84baaa is active in `20261024T235701.367069Z-b1475572`. The revised
+primary-first isolated validation and activated-launcher canary passed, including
+two exact-UUID remote resumes and an independent genuine approval canceled
+without approval. No reload or agent restart was needed. Existing launchers gain
+the repair on natural cdev reopening. See STATUS and ACCEPTANCE-HARNESS for
+evidence and the exact rollback command. Entries below are historical handoffs.
+
+# Pager and persistent Doom are active — 2026-10-23
+
+Current: `20261023T042036.839310Z-1711bc49` (1118c0a), including accepted pager
+commit d70421d. Thirteen exact managed files; the named Doom LaunchAgent is loaded.
+Future cdev windows use terminal clients; existing standalone panes are preserved.
+Focused tests and actual two-client/server recovery/iPhone acceptance passed.
+STATUS.md records exact backups and independent rollback commands. Pager recovery
+uses its disable command; Emacs recovery preserves the accepted pager release.
+Existing shared-server lifecycle evidence limitations remain explicit. No tmux or
+Ghostty reload was performed. Earlier rollout notes below are historical.
+
+---
+
+# Current cdev repair — 2026-10-22
+
+Release `20261023T034028.602247Z-9d3ec165` (343faaf) is active. Only the Python
+session helper changes; standalone Fish/Doom remains in use. Exact project UUID
+pins and verified shared-server remote resume replace `--last`. No reload was
+required. See STATUS.md and [CDEV-RECOVERY.md](CDEV-RECOVERY.md) for checks,
+private backup and rollback. Earlier rollout notes below remain historical.
+
+---
+
+# Dashboard accepted; disposable review cleaned up — 2026-10-22
+
+Physical Ctrl+F n acceptance passed. The review session and all owned test
+processes have been removed after identity/descendant checks. Main's four windows,
+seven panes, two clients and all checked production processes survive. Active
+release is 20261023T002013.807639Z-023596db (9a861dc), with eight managed live paths.
+No further dashboard action is pending. Persistent Doom remains deferred.
+See STATUS.md and [ATTENTION-ROLLOUT.md](ATTENTION-ROLLOUT.md) for final evidence,
+cleanup details and recovery. Entries below describe earlier rollout states.
+
+---
+
+# Attention-persistence repair is active — 2026-10-22
+
+Current is releases/20261023T002013.807639Z-023596db (9a861dc). The one controlled
+repair reload and actual aged-event/lifecycle checks passed; final physical n
+acceptance and conditional cleanup are pending. Hook definitions, cdev/editor
+launching and other keybindings are unchanged. All eight managed paths share the
+pointer. The user's confirmed manual Fish function is preserved. See
+[ATTENTION-ROLLOUT.md](ATTENTION-ROLLOUT.md) and STATUS.md for current evidence and
+recovery; deployment commands below may refer to historical releases.
+
+---
+
+# Current deployment handoff — 2026-10-22
+
+The Codex dashboard is active on release 20261022T215047.249499Z-618a6bc8 after
+one authorized tmux reload; physical acceptance is pending. Eight managed live
+paths now share current: five tmux files, Ghostty, and the two cdev helpers.
+Every future pointer operation must account for all eight. Live Fish/Doom and
+clipboard configuration remain unchanged; editor/service candidates are deferred.
+See [DASHBOARD-ACCEPTANCE.md](DASHBOARD-ACCEPTANCE.md) and STATUS.md before
+using historical commands below. Native trust is user-owned; repository edits
+still confer no deployment/reload authority.
+
+Bounded dashboard recovery is disable plus read-only verification. A full
+reload explicitly turns the feature on again; do not use it to preserve the off
+state. Helper restoration removes the fixed adapter path and requires inspection
+of active instrumented clients. Broader rollback is not implied by a display issue.
+The separate commit-keyed idempotent staging improvement is still outstanding.
+
+---
+
 # Development, deployment and activation workflow
 
 ## Authority and boundaries
 
-The user authorized ongoing repository development, tests, docs and reviewed
-local commits on 2026-10-21. This supersedes the starter's M1-only editing gate.
-It does not authorize changes to live dotfiles or deployment state. Follow
-`AGENTS.md`; its written policy supplements actual sandbox/approval controls.
+The user's 2026-10-25 standing policy authorizes requested bounded, reversible
+repairs through verified deployment and canary using the existing tooling.
+Repository edits alone confer no deployment authority; the task and standing
+policy define its scope. Broad/global changes and substantive risks still need
+explicit review. Follow `AGENTS.md`; these rules supplement actual sandbox and
+approval controls.
 
 The three layers are the development checkout, copied releases under
 `~/.local/share/dotfiles-active/`, and exact live paths. No live/deployment symlink
 may point into the checkout. No automatic deployment or reload is allowed.
 
 ## Repository work
+
+For creating personal projects and opening local or upstream repositories, see
+[PROJECTS.md](PROJECTS.md). Global instructions, `cnew NAME` and `cdev NAME` are
+deployed in signed 632b28d / `20261025T061731.748309Z-45cef594`; STATUS records
+acceptance and the two new managed-path backups. Existing Fish processes retain
+already-loaded function definitions; no session restart or tmux reload is needed.
 
 1. Read current status and the relevant source. Inspect exact live sources as
    needed, without broad home scans, private data, or unrelated repositories.
@@ -223,11 +327,13 @@ terminates application processes.
 | LaunchAgent | File installation/bootstrap/kickstart/shutdown require separate approval; a loaded job retains its pinned definition |
 | Other Fish/Doom/AeroSpace | Unmanaged and outside this milestone |
 
-Installed Ghostty 1.3.1 action docs describe explicit reload and warn that not all
-settings are reloadable. They provide no automatic config watcher contract.
+Installed Ghostty 1.3.1's bundled ghostty.1.md (+edit-config, lines 185–190)
+explicitly says automatic config reload is not yet supported; use a manual
+reload. Its reload_config action also warns that not all settings apply at runtime.
 A running-GUI watcher test across symlink changes was not authorized/performed.
-Treat a Ghostty pointer change as potentially immediately observable; do not
-promise a no-reload staging barrier for an already managed Ghostty target.
+Conservatively treat a Ghostty pointer change as potentially immediately
+observable and retain the legacy n/c bridge until explicit GUI reload and physical
+acceptance; do not rely on an untested watcher assumption as an ordering barrier.
 
 For a tmux reload, propose the exact source command and effects separately.
 Sourcing the main config also re-executes its existing plugin startup commands.

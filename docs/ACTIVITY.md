@@ -1,3 +1,69 @@
+# Dashboard accepted; disposable review cleaned up — 2026-10-22
+
+Physical Ctrl+F n acceptance passed. The review session and all owned test
+processes have been removed after identity/descendant checks. Main's four windows,
+seven panes, two clients and all checked production processes survive. Active
+release is 20261023T002013.807639Z-023596db (9a861dc), with eight managed live paths.
+No further dashboard action is pending. Persistent Doom remains deferred.
+See STATUS.md and [ATTENTION-ROLLOUT.md](ATTENTION-ROLLOUT.md) for final evidence,
+cleanup details and recovery. Entries below describe earlier rollout states.
+
+---
+
+# Attention-persistence repair is active — 2026-10-22
+
+Current is releases/20261023T002013.807639Z-023596db (9a861dc). The one controlled
+repair reload and actual aged-event/lifecycle checks passed; final physical n
+acceptance and conditional cleanup are pending. Hook definitions, cdev/editor
+launching and other keybindings are unchanged. All eight managed paths share the
+pointer. The user's confirmed manual Fish function is preserved. See
+[ATTENTION-ROLLOUT.md](ATTENTION-ROLLOUT.md) and STATUS.md for current evidence and
+recovery; deployment commands below may refer to historical releases.
+
+---
+
+# Stopped attention policy correction — repository candidate, 2026-10-22
+
+The deployed e38e18d policy expires all states after 15 minutes; this incorrectly
+removes otherwise valid stopped agents from attention. The repository candidate
+keeps stopped (`done`) attention while the same launch identity remains valid,
+until another lifecycle event or process departure clears it. Visiting a pane
+does not acknowledge review. Working/waiting still expire after 15 minutes of
+silence; future timestamps and identity mismatches remain invalid. Both cdev and
+workmux fallback validation, native title display and native expiry monitoring
+use this policy. The candidate adds no polling or per-frame processes.
+
+This correction is **not deployed**. The earlier descriptions of a blanket
+15-minute lease below describe the existing release. See
+[ATTENTION-DIAGNOSIS.md](ATTENTION-DIAGNOSIS.md) for evidence and regressions.
+
+---
+
+# Current production evidence — 2026-10-22
+
+The e38e18d observer is now deployed and real ordinary-cdev delivery, native trust
+reuse, concurrent identities, workmux coexistence, termination and attention
+navigation passed. See [DASHBOARD-ACCEPTANCE.md](DASHBOARD-ACCEPTANCE.md).
+The stopped dot means a stopped turn; reliable waiting comes from PermissionRequest,
+not arbitrary questions. Existing agents were preserved, not retroactively restarted.
+
+Fresh private format-only measurements of the deployed renderer: idle 0.0185ms,
+working 0.4875ms, stopped 0.0237ms and waiting 0.0240ms per 24-character expansion;
+a 20-idle-window monitor cost 0.2417ms. Three 2,000-expansion samples include parser/
+output cost. Live samples produced four native clock frames from one cached
+working format/sequence, with zero shell expansions/processes per animation tick.
+
+The historical full benchmark command below predates e38e18d: its hook-timing
+section still passes retired --state/--socket/--pane/--token event arguments.
+Do not use that section or its old hook-latency result to characterize the repaired
+adapter. Updating it is a separate repository-only follow-up. This rollout used
+the reviewed temporary format-only harness and actual production lifecycle events;
+no benchmark fixture is claimed as real hook delivery.
+Earlier per-launch-command descriptions below are superseded by the stable
+runtime-context protocol in HOOK-REGISTRATION.md and current acceptance evidence.
+
+---
+
 The hook-registration repair and its remaining native trust/delivery gate are
 documented in [HOOK-REGISTRATION.md](HOOK-REGISTRATION.md). That document replaces
 the per-launch command-identity design described below. Consult STATUS.md for
@@ -5,8 +71,9 @@ the recovered production state; this older candidate narrative is historical.
 
 # Codex activity dashboard — repository candidate
 
-Production remains the physically accepted ec518f0 tmux deployment. This
-candidate has not been staged, activated or reloaded. The offline
+Production remains the physically accepted ec518f0 tmux deployment. Final
+candidate 8dad372 is staged inactive; it has not been activated or reloaded.
+See STATUS.md for its exact release and evidence. The offline
 [four-state preview](previews/dashboard.html) uses synthetic evidence.
 
 ## Discovery and the evidence boundary
