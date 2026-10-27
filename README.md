@@ -1,5 +1,7 @@
 # spacedoom
 
+![Doom Emacs and Codex side by side in Ghostty and tmux](assets/spacedoom-desktop.png)
+
 Originally my Spacemacs-inspired Doom Emacs configuration; now my complete
 terminal-first macOS setup: Doom Emacs with Evil and a Spacemacs Dark theme,
 Fish, Ghostty, tmux and AeroSpace. This is the configuration I use, including
