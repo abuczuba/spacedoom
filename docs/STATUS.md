@@ -1,7 +1,7 @@
 # Workstation status — 2026-11-19
 
-The `passme` repair **9b52edb** is SSH-signed and deployed in
-**20261119T215827.649643Z-eb16df03**. All 51 payloads and 49 managed links verify;
+The `passme` repair **9b52edb**, with plain-language confirmation **edf7a99**,
+is SSH-signed and deployed in **20261119T220822.294960Z-d196d5c5**. All 51 payloads and 49 managed links verify;
 only `fish/config.fish` changes behavior (other release-path substitutions are
 mechanical). No application was reloaded or restarted; all 13 protected process
 generations and seven panes/layouts survived. Collie and hooks were untouched.
@@ -12,20 +12,22 @@ clipboard alone; copy failures return nonzero and never announce success. It
 prints no password. Seven function tests, the nearby Fish startup test, the
 isolated activation/rollback regression and full-manifest parser checks passed.
 The seven function tests also passed against the deployed source, with real
-OpenSSL and an isolated clipboard. The user's actual clipboard was not touched.
+OpenSSL and an isolated clipboard. The wording-only follow-up passed the real
+generation/clipboard-output test and full release validation; it retains
+`Fly safe! o7`. The user's actual clipboard was not touched.
 
 New Fish shells load the function normally. **Next action: run `fishrc` once in
 an existing Fish shell**, then use `passme` normally. No shell input was injected.
 No new migration/backup was needed: the prior immutable release is retained.
-Activation journal: `20261119T215903.813364Z-78761899.json`.
+Activation journal: `20261119T220853.410279Z-3622e730.json`.
 
 Rollback (does not reload existing shells):
 
 ```sh
-python3.12 scripts/deploy.py rollback --expect-current 20261119T215827.649643Z-eb16df03 --approve
+python3.12 scripts/deploy.py rollback --expect-current 20261119T220822.294960Z-d196d5c5 --approve
 ```
 
-This returns to **20261026T215339.759237Z-d3ef66f1**. The following consolidation
+This returns to **20261119T215827.649643Z-eb16df03** (the original passme repair). The following consolidation
 record is historical; the current release is the one above.
 
 ## Retained workstation consolidation — 2026-10-26
