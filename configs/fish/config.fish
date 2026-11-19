@@ -86,7 +86,7 @@ function passme --description 'Copy a 48-character random password'
             printf 'passme: clipboard copy failed.\n' >&2
             return 1
         end
-        echo '48-character password copied to clipboard. Fly safe! o7'
+        echo 'Password copied to clipboard: 48 characters, including uppercase, lowercase and numbers. Fly safe! o7'
         return 0
     end
     printf 'passme: could not generate a compliant password; clipboard untouched.\n' >&2
