@@ -1,4 +1,34 @@
-# Workstation status — 2026-10-26
+# Workstation status — 2026-11-19
+
+The `passme` repair **9b52edb** is SSH-signed and deployed in
+**20261119T215827.649643Z-eb16df03**. All 51 payloads and 49 managed links verify;
+only `fish/config.fish` changes behavior (other release-path substitutions are
+mechanical). No application was reloaded or restarted; all 13 protected process
+generations and seven panes/layouts survived. Collie and hooks were untouched.
+
+`passme` now copies 48 uniformly random alphanumeric characters, guaranteeing
+uppercase, lowercase and digits. Generator/dependency/output failures leave the
+clipboard alone; copy failures return nonzero and never announce success. It
+prints no password. Seven function tests, the nearby Fish startup test, the
+isolated activation/rollback regression and full-manifest parser checks passed.
+The seven function tests also passed against the deployed source, with real
+OpenSSL and an isolated clipboard. The user's actual clipboard was not touched.
+
+New Fish shells load the function normally. **Next action: run `fishrc` once in
+an existing Fish shell**, then use `passme` normally. No shell input was injected.
+No new migration/backup was needed: the prior immutable release is retained.
+Activation journal: `20261119T215903.813364Z-78761899.json`.
+
+Rollback (does not reload existing shells):
+
+```sh
+python3.12 scripts/deploy.py rollback --expect-current 20261119T215827.649643Z-eb16df03 --approve
+```
+
+This returns to **20261026T215339.759237Z-d3ef66f1**. The following consolidation
+record is historical; the current release is the one above.
+
+## Retained workstation consolidation — 2026-10-26
 
 Canonical source commit **439266d** is SSH-signed and deployed as
 **20261026T215339.759237Z-d3ef66f1**. All **51 payloads** and **49 exact live links**
