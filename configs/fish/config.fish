@@ -57,10 +57,40 @@ alias psa="ps auxf"
 alias psgrep="ps aux | grep -v grep | grep -i -e VSZ -e"
 alias ll="ls -Alh" # Always Show Dotfiles
 
-#### generate an excellent password and copy dat to system clipboard.
-function passme
-    openssl rand -hex 32 | string trim -r | pbcopy
-    echo "256-bit password copied to clipboard. Fly safe! o7"
+#### Copy a cryptographically random, website-friendly password without printing it.
+function passme --description 'Copy a 48-character random password'
+    if not command -sq openssl; or not command -sq pbcopy
+        printf 'passme: openssl and pbcopy are required.\n' >&2
+        return 1
+    end
+
+    set -l attempts 0
+    while test $attempts -lt 16
+        set attempts (math $attempts + 1)
+        if not set -l random (command openssl rand -base64 48)
+            printf 'passme: secure random generation failed; clipboard untouched.\n' >&2
+            return 1
+        end
+        if not string match -rq '^[A-Za-z0-9+/]{64}$' -- "$random"
+            printf 'passme: unexpected generator output; clipboard untouched.\n' >&2
+            return 1
+        end
+        # Discard +/ rather than mapping them: retained characters stay uniform.
+        set -l password (string replace -ar '[+/]' '' -- "$random" | string sub -l 48)
+        if not string match -rq '^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])[A-Za-z0-9]{48}$' -- "$password"
+            continue
+        end
+        printf '%s' "$password" | command pbcopy
+        set -l copy_status $pipestatus
+        if test $copy_status[1] -ne 0; or test $copy_status[2] -ne 0
+            printf 'passme: clipboard copy failed.\n' >&2
+            return 1
+        end
+        echo '48-character password copied to clipboard. Fly safe! o7'
+        return 0
+    end
+    printf 'passme: could not generate a compliant password; clipboard untouched.\n' >&2
+    return 1
 end
 
 #### Pacman Goes Sudo; Aliases for Software Management
