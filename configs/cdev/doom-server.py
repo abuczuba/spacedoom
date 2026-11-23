@@ -51,7 +51,7 @@ def check_directory(directory, create=False):
             raise ServerError("server directory must be owned by you, mode 700")
 
 
-def check(socket, client="/opt/homebrew/bin/emacsclient"):
+def check(socket, client="/opt/homebrew/bin/emacsclient", dashboard_if_new=False):
     check_directory(socket.parent)
     if not socket.exists() or socket.is_symlink():
         raise ServerError("Doom server unavailable; start the named server explicitly (serve), then retry cdev")
@@ -59,17 +59,24 @@ def check(socket, client="/opt/homebrew/bin/emacsclient"):
     if not stat.S_ISSOCK(info.st_mode) or info.st_uid != os.getuid():
         raise ServerError("unsafe server socket; no connection attempted")
     expression = "(and (daemonp) (featurep 'dotfiles-cdev) (bound-and-true-p persp-mode) t)"
+    if dashboard_if_new:
+        expression = "(and (bound-and-true-p dotfiles-cdev-dashboard-if-new) " + expression + ")"
     result = subprocess.run([client, "--socket-name=" + str(socket), "--alternate-editor=/usr/bin/false",
                              "--eval", expression], capture_output=True, text=True, timeout=5, env=client_environment())
     if result.returncode or result.stdout.strip() != "t":
+        if dashboard_if_new:
+            raise ServerError("Doom is not ready for emax; its updated frame integration must be loaded first (no fallback started)")
         raise ServerError("named Doom server failed readiness checks; no fallback or pane replacement attempted")
 
 
-def client_command(socket, root, client="/opt/homebrew/bin/emacsclient"):
+def client_command(socket, root, client="/opt/homebrew/bin/emacsclient", dashboard_if_new=False):
     root = Path(root).resolve(strict=True)
     if not root.is_dir() or any(c in str(root) for c in "\r\n\t"):
         raise ServerError("invalid project directory")
-    parameters = "((cdev-project-root . " + json.dumps(str(root), ensure_ascii=False) + "))"
+    parameters = "((cdev-project-root . " + json.dumps(str(root), ensure_ascii=False) + ")"
+    if dashboard_if_new:
+        parameters += " (cdev-dashboard-if-new . t)"
+    parameters += ")"
     # Directory ownership/readiness were checked first. Do not use -a '' or -n:
     # those can start a different daemon or suppress the terminal client frame.
     return [client, "--socket-name=" + str(socket), "--alternate-editor=/usr/bin/false",
@@ -111,6 +118,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=["check", "client", "serve", "status"])
     parser.add_argument("--project")
+    parser.add_argument("--dashboard-if-new", action="store_true",
+                        help="Client only: show the dashboard for a new folder workspace")
     parser.add_argument("--socket", type=Path)
     parser.add_argument("--emacs", default="/opt/homebrew/bin/emacs")
     parser.add_argument("--emacsclient", default="/opt/homebrew/bin/emacsclient")
@@ -124,11 +133,11 @@ def main():
             raise ServerError("server socket must be an absolute path of at most 100 bytes")
         if args.action == "serve":
             return serve(socket, args.emacs, args.emacs_dir, args.integration)
-        check(socket, args.emacsclient)
+        check(socket, args.emacsclient, args.dashboard_if_new)
         if args.action == "client":
             if not args.project:
                 raise ServerError("client requires --project")
-            command = client_command(socket, args.project, args.emacsclient)
+            command = client_command(socket, args.project, args.emacsclient, args.dashboard_if_new)
             os.chdir(Path(args.project).resolve())
             os.execve(command[0], command, client_environment())
         if args.action == "status":

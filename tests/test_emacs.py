@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import stat
 import subprocess
+import sys
 import tempfile
 import time
 import shlex
@@ -47,6 +48,15 @@ class EmacsManagerTests(unittest.TestCase):
             self.assertNotIn("-n", command)
             self.assertIn("--alternate-editor=/usr/bin/false", command)
             self.assertIn(json.dumps(str(root)), command[-1])
+
+    def test_emax_dashboard_parameter_is_opt_in_and_stays_frame_local(self):
+        with tempfile.TemporaryDirectory(prefix="df-emax-") as directory:
+            root = Path(directory).resolve()
+            plain = server.client_command(Path("/private/tmp/owned/server"), root)
+            emax = server.client_command(Path("/private/tmp/owned/server"), root, dashboard_if_new=True)
+            self.assertNotIn("cdev-dashboard-if-new", plain[-1])
+            self.assertIn("(cdev-dashboard-if-new . t)", emax[-1])
+            self.assertEqual(plain[:-1], emax[:-1])
 
 
 @unittest.skipUnless(INTEGRATION, "Use --integration for a disposable Doom daemon and terminal clients")
@@ -109,6 +119,50 @@ class DoomIntegration(unittest.TestCase):
         self.assertNotEqual(duplicate.returncode, 0)
         self.assertIn("no duplicate", duplicate.stderr)
         self.assertEqual(harness.data("(emacs-pid)"), identity[0])
+
+    def test_emax_dashboard_existing_workspace_and_legacy_client_are_independent(self):
+        h = DoomHarness(dashboard_faces=True)
+        self.addCleanup(h.close)
+        h.start()
+        roots = [h.root / name for name in ['folder a', 'folder b', 'legacy']]
+        for root in roots:
+            root.mkdir()  # Intentionally neither Git nor a cdev-created project.
+
+        def connect(root):
+            command = [sys.executable, '-B', str(REPO / 'configs/cdev/doom-server.py'),
+                       'client', '--socket', str(h.socket), '--project', str(root), '--dashboard-if-new']
+            h.frame_clients[str(root)] = h.terminal(root, command)
+            until = time.monotonic() + 10
+            while time.monotonic() < until:
+                if h.data("(cl-some (lambda (f) (equal (frame-parameter f 'cdev-project-root) "
+                          + json.dumps(str(root) + '/') + ')) (frame-list))'):
+                    return
+                time.sleep(.1)
+            self.fail('emax frame did not initialize')
+
+        a, b, legacy = roots
+        connect(a)
+        self.assertEqual(h.frame(a, '(symbol-name major-mode)'), '+dashboard-mode')
+        self.assertIn(str(a) + '/', h.picker(a))
+        h.frame(a, '(progn (switch-to-buffer (get-buffer-create "*emax-kept*")) (insert "retained") t)')
+        workspace = h.frame(a, '(+workspace-current-name)')
+        connect(b)
+        self.assertEqual(h.frame(b, '(symbol-name major-mode)'), '+dashboard-mode')
+        self.assertIn(str(b) + '/', h.picker(b))
+        self.assertEqual(h.frame(a, '(buffer-name)'), '*emax-kept*')
+        h.frame(a, '(progn (delete-frame nil t) t)')
+        connect(a)
+        self.assertEqual(h.frame(a, '(+workspace-current-name)'), workspace)
+        self.assertEqual(h.frame(a, '(buffer-name)'), '*emax-kept*')
+        self.assertEqual(h.frame(a, '(buffer-string)'), 'retained')
+        h.connect(legacy)
+        self.assertNotEqual(h.frame(legacy, '(symbol-name major-mode)'), '+dashboard-mode')
+        self.assertEqual(h.frame(legacy, 'default-directory'), str(legacy) + '/')
+        server.check(h.socket, dashboard_if_new=True)
+        h.request('(setq dotfiles-cdev-dashboard-if-new nil)')
+        with self.assertRaises(server.ServerError):
+            server.check(h.socket, dashboard_if_new=True)
+        server.check(h.socket)  # Existing cdev clients retain the prior readiness contract.
 
     def test_real_cdev_layout_dashboard_and_client_pane_close(self):
         doom = DoomHarness()

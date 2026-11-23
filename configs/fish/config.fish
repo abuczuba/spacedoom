@@ -158,11 +158,31 @@ function toggle_emacs_daemon
         echo "Emacs daemon started."
     end
 end
-##### client stuff:
-###### old version that took no arguments:
-#function emacs
-#    nohup emacsclient -c -a '' >/dev/null 2>&1 &
-#end
+##### Terminal clients for the existing named Doom server.
+function emacs --description 'Open a terminal client on the Doom server'
+    set -l state "$HOME/.local/state"
+    if set -q XDG_STATE_HOME; and test -n "$XDG_STATE_HOME"
+        set state "$XDG_STATE_HOME"
+    end
+    command emacsclient --socket-name="$state/cdev-emacs/server" --alternate-editor=/usr/bin/false -t $argv
+end
+
+function emax --description 'Open this folder in Doom; restore work or show the dashboard'
+    if test (count $argv) -gt 1
+        printf 'Usage: emax [DIRECTORY]\n' >&2
+        return 2
+    end
+    set -l root "$PWD"
+    if set -q argv[1]
+        set root "$argv[1]"
+    end
+    set -l config "$HOME/.config"
+    if set -q XDG_CONFIG_HOME; and test -n "$XDG_CONFIG_HOME"
+        set config "$XDG_CONFIG_HOME"
+    end
+    command /usr/bin/python3 -B "$config/cdev/doom-server.py" client --project="$root" --dashboard-if-new
+end
+
 ###### a fully functional fish alias for launching emacs with optional arguments:
 function emacsgui
     if test (count $argv) -eq 0
@@ -172,7 +192,7 @@ function emacsgui
     end
 end
 
-alias enw="emacs -nw"
+alias enw="command emacs -nw"
 ##### bin/doom stuff:
 alias dedit="doom edit"
 alias dsync="doom sync"

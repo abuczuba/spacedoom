@@ -4,6 +4,9 @@
 ;; No replacement init.el/config.el, global default-directory, or timer.
 (require 'cl-lib)
 
+(defconst dotfiles-cdev-dashboard-if-new t
+  "This frame integration supports emax's dashboard-on-first-open request.")
+
 (defun dotfiles-cdev-workspace-name (root)
   "Return a stable, collision-resistant native Doom workspace name for ROOT."
   (concat "cdev:" (file-name-nondirectory (directory-file-name root)) ":"
@@ -32,11 +35,15 @@
           ;; A cdev project is deliberately retained for terminal reconnection.
           (set-frame-parameter frame 'workspace nil)
           (unless exists
-            (let ((buffer (get-buffer-create (concat "*" name "*"))))
-              (with-current-buffer buffer
-                (setq-local default-directory root))
-              (persp-add-buffer buffer (get-current-persp) nil nil)
-              (switch-to-buffer buffer))))))))
+            (if (frame-parameter frame 'cdev-dashboard-if-new)
+                ;; The dashboard is shared: keep its default-directory untouched.
+                ;; SPC f f already uses this frame's project-root parameter.
+                (switch-to-buffer (doom-fallback-buffer))
+              (let ((buffer (get-buffer-create (concat "*" name "*"))))
+                (with-current-buffer buffer
+                  (setq-local default-directory root))
+                (persp-add-buffer buffer (get-current-persp) nil nil)
+                (switch-to-buffer buffer)))))))))
 
 (defun dotfiles/cdev-find-file ()
   "Use this frame's cdev root for SPC f f; preserve other file navigation.

@@ -8,6 +8,25 @@ Activation is authorized for this milestone; STATUS.md records actual deployment
 Existing standalone Emacs and Codex processes remain in place. Only future cdev
 launches use the client path; reuse never replaces an existing editor pane.
 
+
+## Editor-only terminal shortcuts
+
+`emacs [FILES...]` connects the current terminal pane to the existing named Doom
+server. `emax [DIRECTORY]` uses the current directory by default: an existing
+folder workspace is restored, while a new one opens on the Doom dashboard.
+`SPC f f` stays rooted in that frame's folder. Neither shortcut creates tmux
+windows or launches Codex, and neither starts a fallback daemon.
+
+`enw` explicitly calls `command emacs -nw` for standalone Doom. The Fish function
+named `emacs` therefore does not intercept the standalone escape hatch.
+
+The helper's `--dashboard-if-new` request is opt-in; ordinary `cdev` retains its
+existing new-workspace behavior. It requires the updated frame integration in
+the running named server and fails clearly before opening a frame if that code
+has not been loaded. Source/deployment edits never refresh a running daemon
+implicitly. New Fish shells (or a manual `fishrc`) load the shortcut functions.
+
+
 ## Inspected baseline
 
 The live 130-line cdev function creates/reuses a Git-root window, Doom left and
