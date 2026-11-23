@@ -1,5 +1,29 @@
 # Workstation status — 2026-11-23
 
+Evil insert-mode `kj` escape is live and persisted in release
+**20261123T231833.268509Z-8b080c69**, from signed source commit **1a470bb**.
+It uses Doom's installed, already-enabled `evil-escape`, preserving the 0.15-second
+delay and existing exclusions. Only `doom/config.el` changes semantically across
+the 51-payload release; all 49 managed links verify. The explicit live update set
+only `evil-escape-key-sequence`; daemon PID 1283 and all four existing frames/views
+were preserved. No daemon restart, full config reload or package install occurred.
+
+A disposable Doom terminal test verified actual quick `kj` keypresses enter normal
+state without inserting either character, while slower `k` then `j` stays literal
+text in insert mode. Full release parser/dependency checks passed. Existing clients
+need no restart or manual reload. Activation journal: `20261123T231838.750159Z-2dcf26c3.json`.
+
+Rollback retains `20261123T081015.107999Z-e855ae1d`:
+
+```sh
+python3.12 scripts/deploy.py rollback --expect-current 20261123T231833.268509Z-8b080c69 --approve
+emacsclient -s ~/.local/state/cdev-emacs/server -a /usr/bin/false --eval '(when (equal evil-escape-key-sequence "kj") (setq evil-escape-key-sequence nil))'
+```
+
+No rollback was needed. Earlier records below describe their historical releases.
+
+## Previous workstation status — 2026-11-23
+
 Editor-only shortcuts **aa89f90** are SSH-signed and active in release
 **20261123T081015.107999Z-e855ae1d**. All 51 payloads and 49 managed links
 verify; only Fish config, the Doom client helper and frame integration change.
