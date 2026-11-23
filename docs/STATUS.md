@@ -1,4 +1,45 @@
-# Workstation status — 2026-11-19
+# Workstation status — 2026-11-23
+
+Editor-only shortcuts **aa89f90** are SSH-signed and active in release
+**20261123T081015.107999Z-e855ae1d**. All 51 payloads and 49 managed links
+verify; only Fish config, the Doom client helper and frame integration change.
+
+- `emacs [FILES...]`: terminal client on the existing named Doom server.
+- `emax [DIRECTORY]`: current folder by default; splash for a new workspace,
+  existing buffers/workspace restored on reopening. `SPC f f` stays folder-local.
+- `enw`: explicit standalone `command emacs -nw`.
+
+Nine focused unit/startup checks, a real disposable-Doom integration and full
+manifest validation passed. An owned old-to-new refresh preserved client state.
+The user explicitly approved production activation and the targeted integration
+refresh. Doom PID 1283, all four existing frames, their views/project contexts,
+19 protected process generations, 11 panes/layouts and tmux bindings survived.
+No daemon/service restart, tmux reload, Codex hook change or client replacement
+was performed. The production helper passes its new readiness check.
+
+**Next action: run `fishrc` in an existing Fish shell**, then use the shortcuts.
+New Fish shells load them normally. Ordinary cdev behavior is unchanged. The
+pending talking-clock repair remains separate and awaits the user's listening test.
+
+Activation journal: `20261123T082154.476959Z-451308c5.json`.
+Rollback retains **20261119T221146.125623Z-b2a69e1b**:
+
+```sh
+python3.12 scripts/deploy.py rollback --expect-current 20261123T081015.107999Z-e855ae1d --approve
+```
+
+After pointer rollback, refresh the prior integration in the named Doom server
+(no restart):
+
+```fish
+emacsclient -s ~/.local/state/cdev-emacs/server -a /usr/bin/false --eval '(progn (load "~/.config/doom/cdev.el" nil t) (makunbound (quote dotfiles-cdev-dashboard-if-new)))'
+functions -e emacs emax
+fishrc
+```
+
+No rollback was needed. Previous records below retain their historical release IDs.
+
+## Previous workstation status — 2026-11-19
 
 The `passme` repair **9b52edb**, with concise confirmation **cdd57de**,
 is SSH-signed and deployed in **20261119T221146.125623Z-b2a69e1b**. All 51 payloads and 49 managed links verify;
