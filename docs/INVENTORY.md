@@ -105,8 +105,11 @@ and safe-local-variable choices, rather than becoming an immutable release file.
 - Vendor Riot LaunchAgent: application-managed. The only personal LaunchAgent is
   the tracked Doom server; Collie has its own separately maintained agent.
 - `~/.local/bin` contains external Collie/Tailscale/Python symlinks. No personal
-  `~/bin` or `~/scripts` directory exists. Legacy aliases to older scripts are
-  retained as personal references, not evidence those programs are installed.
+  `~/bin` directory was found. The later-added `~/scripts/half_life_talking_clock/`
+  contains the user's talking clock and 35 WAV clips. Its maintained macOS source
+  is `scripts/half-life_clock.pl`; the live regular-file copy is outside the release
+  manifest; the user accepted playback on 2026-11-23. WAV assets remain external and are not
+  redistributed. Other legacy script aliases remain personal references.
 - `~/.config/opencode` is empty. `doom-original` and dated Doom backups are
   historical copies, not authoritative sources. No other shell startup files,
   Vim/skhd/yabai configuration or global Git ignore file were found.

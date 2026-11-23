@@ -19,7 +19,7 @@ was performed. The production helper passes its new readiness check.
 
 **Next action: run `fishrc` in an existing Fish shell**, then use the shortcuts.
 New Fish shells load them normally. Ordinary cdev behavior is unchanged. The
-pending talking-clock repair remains separate and awaits the user's listening test.
+talking-clock repair also passed user-reported listening acceptance on 2026-11-23.
 
 Activation journal: `20261123T082154.476959Z-451308c5.json`.
 Rollback retains **20261119T221146.125623Z-b2a69e1b**:
@@ -38,6 +38,25 @@ fishrc
 ```
 
 No rollback was needed. Previous records below retain their historical release IDs.
+
+## Talking-clock acceptance — 2026-11-23
+
+The user confirmed that `thetime` works and authorized committing and publishing
+the repair on 2026-11-23.
+The script path now exists; the remaining failure was missing SoX `play` and
+an unsafe nested shell invocation. New source `scripts/half-life_clock.pl` uses
+macOS `/usr/bin/afplay`, resolves clips beside the script, joins compatible PCM
+WAVs into one private temporary file, and reports missing clips/playback failures.
+The Fish alias and immutable dotfiles release remain unchanged. Audio assets
+stay outside Git. Five focused regressions pass, covering all 1,440 daily time
+combinations, PCM concatenation, missing/mismatched/truncated clips, cleanup and
+player failure. Native `afinfo` accepted four joined announcements using the
+actual recordings; no audio was played automatically. The live regular script
+now matches the repository candidate, with its original mode 700 preserved.
+Verified original backup:
+`~/scripts/half_life_talking_clock/half-life_clock.pl.before-afplay-20261122T045000Z`.
+Listening acceptance is complete. The maintained source and regression tests
+are ready for publication; no additional live migration or release change is needed.
 
 ## Previous workstation status — 2026-11-19
 
