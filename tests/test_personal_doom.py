@@ -1,5 +1,6 @@
 """Normal Doom startup from the complete public source in disposable terminals."""
 import os
+import time
 import unittest
 
 from doom_harness import DoomHarness
@@ -42,3 +43,38 @@ class PersonalDoomTests(unittest.TestCase):
         h = self.harness()
         h.start_standalone(h.root)
         self.verify(h)
+
+    def test_kj_exits_insert_mode_without_inserting_the_chord(self):
+        h = self.harness()
+        h.start()
+        root = h.root / 'escape-project'
+        root.mkdir()
+        _, terminal = h.connect(root)
+        h.frame(root, '(progn (fundamental-mode) (erase-buffer) (evil-normal-state) t)')
+
+        def wait_for(state):
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                if h.frame(root, '(symbol-name evil-state)') == state:
+                    return
+                time.sleep(.05)
+            self.fail('Expected Evil state: ' + state)
+
+        os.write(terminal, b'i')
+        wait_for('insert')
+        os.write(terminal, b'kj')
+        wait_for('normal')
+        self.assertEqual(h.frame(root, '(buffer-string)'), '')
+        self.assertEqual(h.frame(root, 'evil-escape-key-sequence'), 'kj')
+
+        # A k not followed promptly by j remains ordinary text.
+        os.write(terminal, b'i')
+        wait_for('insert')
+        os.write(terminal, b'k')
+        time.sleep(.3)
+        os.write(terminal, b'j')
+        deadline = time.monotonic() + 5
+        while h.frame(root, '(buffer-string)') != 'kj' and time.monotonic() < deadline:
+            time.sleep(.05)
+        self.assertEqual(h.frame(root, '(symbol-name evil-state)'), 'insert')
+        self.assertEqual(h.frame(root, '(buffer-string)'), 'kj')

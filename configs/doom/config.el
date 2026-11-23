@@ -17,6 +17,10 @@
 ;; abucz doom/emacs UX tweaks ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
+;; Leave insert mode by typing kj in quick succession.
+(after! evil-escape
+  (setq evil-escape-key-sequence "kj"))
+
 ;; focus new frames
 (add-hook 'after-make-frame-functions
           (lambda (frame)
